@@ -1,0 +1,9 @@
+version: '3.7'
+services:
+  development:
+    build: .
+    container_name: text-matching
+    volumes:
+        - ./docker_data/:/docker_data/
+    stdin_open: true
+    tty: true
