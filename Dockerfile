@@ -15,5 +15,3 @@ RUN cd /opt && wget https://www.python.org/ftp/python/3.8.0/Python-3.8.0.tgz && 
     ./configure --enable-optimizations && make altinstall
 RUN rm -f /opt/Python-3.8.0.tgz
 RUN pip3.8 install pip --upgrade
-RUN pip3.8 install virtualenv==16.7.7
-RUN pip3.8 install requirements.txt

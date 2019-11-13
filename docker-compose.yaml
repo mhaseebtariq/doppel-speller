@@ -2,8 +2,10 @@ version: '3.7'
 services:
   development:
     build: .
-    container_name: text-matching
+    container_name: doppelspeller
     volumes:
-        - ./docker_data/:/docker_data/
+        - .:/doppelspeller/
+    environment:
+        - PROJECT_DATA_PATH=/doppelspeller/data/
     stdin_open: true
     tty: true
