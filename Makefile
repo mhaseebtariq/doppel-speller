@@ -10,7 +10,7 @@ login:
 	docker-compose up -d && docker attach doppelspeller
 
 update-docker:
-	docker-compose up -d && docker exec -t doppelspeller /bin/sh /doppelspeller/update_docker.sh
+	docker-compose up -d && docker exec -t doppelspeller /bin/sh /doppelspeller/docker-update.sh
 
 generate-lsh-forest:
 	docker-compose up -d && docker exec -t doppelspeller doppel-speller -vv generate-lsh-forest
