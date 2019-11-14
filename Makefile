@@ -5,6 +5,7 @@ clean:
 build:
 	make clean
 	docker-compose build
+	make update-docker
 
 login:
 	docker-compose up -d && docker attach doppelspeller
@@ -14,3 +15,6 @@ update-docker:
 
 generate-lsh-forest:
 	docker-compose up -d && docker exec -t doppelspeller doppel-speller -vv generate-lsh-forest
+
+prepare-training:
+	docker-compose up -d && docker exec -t doppelspeller doppel-speller -vv prepare-training

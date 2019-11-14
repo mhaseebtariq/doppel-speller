@@ -11,6 +11,9 @@ PROJECT_DATA_PATH = os.path.abspath(PROJECT_DATA_PATH)
 
 # Clustering settings
 N_GRAMS = 3
+TRAIN_DATA_NEAREST_N = 10
+SIMILAR_TITLES_FILE = f'{PROJECT_DATA_PATH}/similar_{TRAIN_DATA_NEAREST_N}_titles.dump'
+GENERATED_TRAINING_DATA_FILE = f'{PROJECT_DATA_PATH}/generated_training_data.dump'
 
 # Ground Truth input file settings
 GROUND_TRUTH_FILE = f'{PROJECT_DATA_PATH}/G.csv'

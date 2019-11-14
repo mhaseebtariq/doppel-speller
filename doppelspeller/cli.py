@@ -34,3 +34,15 @@ def generate_lsh_forest(**kwargs):
     from doppelspeller.clustering import generate_lsh_forest
 
     return generate_lsh_forest(get_ground_truth())
+
+
+@cli.command()
+def prepare_training(**kwargs):
+    """Prepare data for training the model!"""
+    from doppelspeller.train_preparation import train_preparation, generate_dummy_train_data
+
+    LOGGER.info('Preparing train data!')
+    _ = train_preparation()
+    _ = generate_dummy_train_data()
+
+    return
