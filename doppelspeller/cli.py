@@ -5,6 +5,7 @@ import click
 
 from doppelspeller import __version__, __build__
 from doppelspeller.common import get_ground_truth
+from doppelspeller.cli_utils import time_usage
 
 
 LOGGER = logging.getLogger(__name__)
@@ -13,7 +14,7 @@ LOGGER = logging.getLogger(__name__)
 @click.group(invoke_without_command=True)
 @click.version_option(version=__version__)
 @click.option('-v', '--verbose', count=True, envvar='LOGGING_LEVEL',
-              help='Make output more verbose. Use more v\'s for more verbose')
+              help='Make output more verbose. Use more v\'s for more verbosity.')
 @click.pass_context
 def cli(context, verbose):
     LOGGER.info(f"Predict Redeem v{__version__}-{__build__}")
@@ -29,6 +30,7 @@ def cli(context, verbose):
 
 
 @cli.command()
+@time_usage
 def generate_lsh_forest(**kwargs):
     """Generate the LSH forest for clustering the titles together!"""
     from doppelspeller.clustering import generate_lsh_forest
@@ -37,6 +39,7 @@ def generate_lsh_forest(**kwargs):
 
 
 @cli.command()
+@time_usage
 def prepare_training(**kwargs):
     """Prepare data for training the model!"""
     from doppelspeller.train_preparation import train_preparation, generate_dummy_train_data
@@ -46,3 +49,12 @@ def prepare_training(**kwargs):
     _ = generate_dummy_train_data()
 
     return
+
+
+@cli.command()
+@time_usage
+def train_model(**kwargs):
+    """Train the model!"""
+    from doppelspeller.train import train_model
+
+    return train_model()

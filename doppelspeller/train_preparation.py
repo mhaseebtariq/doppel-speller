@@ -41,7 +41,7 @@ def train_preparation():
 
             similar_titles[title_id].append(title_id)
 
-        if not (index % 10000):
+        if not ((index+1) % 10000):
             LOGGER.info(f'Processed {index+1} of {train_length}...!')
 
     with open(s.SIMILAR_TITLES_FILE, 'wb') as file_object:

@@ -1,98 +1,95 @@
+import logging
 import _pickle as pickle
-from datetime import datetime
 
 import pandas as pd
 import xgboost as xgb
 from fuzzywuzzy import fuzz
 
-SEQUENCES_OF = 3
-NUM_PERM = 128
+import doppelspeller.settings as s
+import doppelspeller.constants as c
+from doppelspeller.common import get_ground_truth, get_train_data, construct_features, get_ground_truth_words_counter
 
 
-def train():
-    in_top = 10
-    with open('similar_programs_{}.dump'.format(in_top), 'rb') as fl:
-        lsh_forest_data = pickle.load(fl)
-    training_data_negative = lsh_forest_data.pop(-1)
+LOGGER = logging.getLogger(__name__)
 
-    ground_truth_mapping = ground_truth.set_index('company_id').copy(deep=True)
-    ground_truth_mapping = ground_truth_mapping.to_dict()['transformed_name']
 
-    train_data = pd.read_csv('STrain.csv', delimiter='|')
-    train_data.loc[:, 'transformed_name'] = train_data.loc[:, 'name'].apply(lambda x: convert_text(x))
-    train_data = train_data.set_index('company_id')
-    del train_data['name']
-    train_data_mapping = train_data.to_dict()['transformed_name']
+def train_model():
+    with open(s.SIMILAR_TITLES_FILE, 'rb') as file_object:
+        training_data_input = pickle.load(file_object)
 
-    train_data_negatives_mapping = train_data[train_data.index == -1].copy(deep=True)
-    train_data_negatives_mapping = train_data_negatives_mapping.set_index('train_index').to_dict()['transformed_name']
+    training_data_negative = training_data_input.pop(s.TRAIN_NOT_FOUND_VALUE)
 
-    generated_training_data = pd.read_pickle('generated_training_data.dump')
+    ground_truth = get_ground_truth()
 
-    generated_training_data.head()
+    ground_truth_mapping = ground_truth.set_index(c.COLUMN_TITLE_ID).copy(deep=True)
+    ground_truth_mapping = ground_truth_mapping.to_dict()[c.COLUMN_TRANSFORMED_TITLE]
+
+    train_data = get_train_data()
+    train_data.loc[:, 'index'] = list(train_data.index)
+    train_data = train_data.set_index(c.COLUMN_TITLE_ID)
+    del train_data[c.COLUMN_TITLE]
+    train_data_mapping = train_data.to_dict()[c.COLUMN_TRANSFORMED_TITLE]
+
+    train_data_negatives_mapping = train_data[train_data.index == s.TRAIN_NOT_FOUND_VALUE].copy(deep=True)
+    train_data_negatives_mapping = train_data_negatives_mapping.set_index('index').to_dict()[c.COLUMN_TRANSFORMED_TITLE]
+
+    generated_training_data = pd.read_pickle(s.GENERATED_TRAINING_DATA_FILE)
 
     training_rows_generated = []
     for train_index, row in generated_training_data.iterrows():
-        truth_company_name = row['transformed_name']
-        company_name = row['generated_misspelled']
+        truth_title = row[c.COLUMN_TRANSFORMED_TITLE]
+        title = row[c.COLUMN_GENERATED_MISSPELLED_TITLE]
         training_rows_generated.append(
-            [1, company_name, company_name.split(' '), truth_company_name, truth_company_name.split(' '), 1])
+            [1, title, title.split(' '), truth_title, truth_title.split(' '), 1])
 
     training_rows_negative = []
-    for train_index, companies in training_data_negative.items():
-        company_name = train_data_negatives_mapping[train_index]
-        for truth_company_id in companies:
-            truth_company_name = ground_truth_mapping[truth_company_id]
-            truth_company_name_words = truth_company_name.split(' ')
-            company_name_words = company_name.split(' ')
+    for train_index, titles in training_data_negative.items():
+        title = train_data_negatives_mapping[train_index]
+        for truth_title_id in titles:
+            truth_title = ground_truth_mapping[truth_title_id]
+            truth_title_words = truth_title.split(' ')
+            title_words = title.split(' ')
             training_rows_negative.append(
-                [2, company_name, company_name_words, truth_company_name, truth_company_name_words, 0])
+                [2, title, title_words, truth_title, truth_title_words, 0])
 
     training_rows = []
-    for company_id, companies in lsh_forest_data.items():
-        company_name = train_data_mapping[company_id]
-        for truth_company_id in companies:
-            truth_company_name = ground_truth_mapping[truth_company_id]
-            truth_company_name_words = truth_company_name.split(' ')
-            company_name_words = company_name.split(' ')
+    for title_id, titles in training_data_input.items():
+        title = train_data_mapping[title_id]
+        for truth_title_id in titles:
+            truth_title = ground_truth_mapping[truth_title_id]
+            truth_title_words = truth_title.split(' ')
+            title_words = title.split(' ')
             training_rows.append(
-                [3, company_name, company_name_words, truth_company_name, truth_company_name_words,
-                 int(company_id == truth_company_id)])
+                [3, title, title_words, truth_title, truth_title_words,
+                 int(title_id == truth_title_id)])
 
     training_rows_final = training_rows_negative + training_rows + training_rows_generated
 
     train = pd.DataFrame(training_rows_final, columns=[
-        'kind', 'company_name', 'company_name_words', 'truth_company_name', 'truth_company_name_words', 'target'])
+        'kind', 'title', 'title_words', 'truth_title', 'truth_title_words', 'target'])
 
-    train.loc[:, 'number_of_characters'] = train.loc[:, 'company_name'].apply(
+    train.loc[:, 'number_of_characters'] = train.loc[:, 'title'].apply(
         lambda x: len(x)
     )
-    train.loc[:, 'truth_number_of_characters'] = train.loc[:, 'truth_company_name'].apply(
+    train.loc[:, 'truth_number_of_characters'] = train.loc[:, 'truth_title'].apply(
         lambda x: len(x)
     )
-    train.loc[:, 'number_of_words'] = train.loc[:, 'company_name_words'].apply(
+    train.loc[:, 'number_of_words'] = train.loc[:, 'title_words'].apply(
         lambda x: len(x)
     )
-    train.loc[:, 'truth_number_of_words'] = train.loc[:, 'truth_company_name_words'].apply(
+    train.loc[:, 'truth_number_of_words'] = train.loc[:, 'truth_title_words'].apply(
         lambda x: len(x)
     )
     train.loc[:, 'levenshtein'] = list(
-        map(lambda x: fuzz.ratio(x[0], x[1]), zip(train.loc[:, 'company_name'], train.loc[:, 'truth_company_name'])))
+        map(lambda x: fuzz.ratio(x[0], x[1]), zip(train.loc[:, 'title'], train.loc[:, 'truth_title'])))
 
-    train.head()
-
-    len(train)
-
-    # Takes ~9 minutes
-
-    st = time.time()
-
-    extra_features = list(map(lambda x: construct_features(x[0], x[1], x[2]), zip(
+    LOGGER.info('Constructing features!')
+    words_counter = get_ground_truth_words_counter(ground_truth)
+    number_of_words = len(words_counter)
+    extra_features = list(map(lambda x: construct_features(x[0], x[1], x[2], words_counter, number_of_words), zip(
         train.loc[:, 'truth_number_of_words'],
-        train.loc[:, 'truth_company_name_words'],
-        train.loc[:, 'company_name'])))
-
-    print(round((time.time() - st) / 60, 2))
+        train.loc[:, 'truth_title_words'],
+        train.loc[:, 'title'])))
 
     columns = ['truth_{}th_word_length'.format(x + 1) for x in range(15)]
     columns += ['truth_{}th_word_probability'.format(x + 1) for x in range(15)]
@@ -105,12 +102,12 @@ def train():
     train = train.merge(extra, right_index=True, left_index=True)
 
     evaluation_generated = train.loc[train['kind'] == 1, :].sample(frac=0.05).copy(deep=True)
-    evalutaion_negative = train.loc[train['kind'] == 2, :].sample(frac=0.1).copy(deep=True)
+    evaluation_negative = train.loc[train['kind'] == 2, :].sample(frac=0.1).copy(deep=True)
     evaluation_positive = train.loc[train['kind'] == 3, :].sample(frac=0.05).copy(deep=True)
 
-    evaluation = pd.concat([evaluation_generated, evalutaion_negative, evaluation_positive])
+    evaluation = pd.concat([evaluation_generated, evaluation_negative, evaluation_positive])
 
-    evaluation_indexes = list(evaluation_generated.index) + list(evalutaion_negative.index) + list(
+    evaluation_indexes = list(evaluation_generated.index) + list(evaluation_negative.index) + list(
         evaluation_positive.index)
 
     train = train.loc[~train.index.isin(evaluation_indexes), :].copy(deep=True).reset_index(drop=True)
@@ -120,35 +117,24 @@ def train():
     del train['kind']
     del evaluation['kind']
 
-    len(train), len(evaluation)
-
-    # train.to_pickle('train.dump')
-    # evaluation.to_pickle('evaluation.dump')
-
-
-    # train = pd.read_pickle('train.dump')
-    # evaluation = pd.read_pickle('evaluation.dump')
-
-
     train_set = train.loc[:, ~train.columns.isin(
-        ['company_name', 'company_name_words', 'truth_company_name', 'truth_company_name_words', 'target'])]
+        ['title', 'title_words', 'truth_title', 'truth_title_words', 'target'])]
     train_set_target = train.loc[:, 'target']
 
     d_train = xgb.DMatrix(train_set.values, label=train_set_target, feature_names=train_set.columns)
 
     evaluation_set = evaluation.loc[:, ~evaluation.columns.isin(
-        ['company_name', 'company_name_words', 'truth_company_name', 'truth_company_name_words', 'target'])]
+        ['title', 'title_words', 'truth_title', 'truth_title_words', 'target'])]
     evaluation_set_target = evaluation.loc[:, 'target']
 
     d_evaluation = xgb.DMatrix(evaluation_set.values, label=evaluation_set_target, feature_names=evaluation_set.columns)
 
     num_rows_train = len(train_set)
 
-
     def custom_error(predictions, train_or_eval):
-        actuals = train_or_eval.get_label()
+        actual_target = train_or_eval.get_label()
         is_train_set = False
-        if len(actuals) == num_rows_train:
+        if len(actual_target) == num_rows_train:
             is_train_set = True
 
         threshold = 0.5
@@ -156,24 +142,21 @@ def train():
         predictions_negative_indexes = (predictions < threshold).nonzero()[0]
         predictions_positive_indexes = (predictions >= threshold).nonzero()[0]
 
-        false_negative_cost = sum(actuals[predictions_negative_indexes])
-        false_positive_cost = sum(actuals[predictions_positive_indexes] == 0) * 5
+        false_negative_cost = sum(actual_target[predictions_negative_indexes])
+        false_positive_cost = sum(actual_target[predictions_positive_indexes] == 0) * 5
 
         cost = false_negative_cost + false_positive_cost
 
         return 'custom-error', cost
 
-
-    def weighted_logloss(predictions, train):
+    def weighted_log_loss(predictions, train_data_object):
         beta = 5
-        actuals = train.get_label()
-        gradient = predictions * (beta + actuals - beta * actuals) - actuals
-        hessian = predictions * (1 - predictions) * (beta + actuals - beta * actuals)
+        actual_target = train_data_object.get_label()
+        gradient = predictions * (beta + actual_target - beta * actual_target) - actual_target
+        hessian = predictions * (1 - predictions) * (beta + actual_target - beta * actual_target)
         return gradient, hessian
 
-
     scale_pos_weight = sum(train_set_target == 0) / sum(train_set_target == 1)
-    print(scale_pos_weight)
 
     watch_list = [(d_train, 'train'), (d_evaluation, 'evaluation')]
     params = {
@@ -196,31 +179,26 @@ def train():
         dtrain=d_train,
         evals=watch_list,
         feval=custom_error,
-        obj=weighted_logloss,
+        obj=weighted_log_loss,
         maximize=False,
         **params
     )
 
-
     def get_xgb_feats_importance(reg):
-        fscore = reg.get_fscore()
+        features_score = reg.get_fscore()
 
-        feat_importances = []
-        for ft, score in fscore.items():
-            feat_importances.append({'feature': ft, 'importance': score})
+        features_importance = []
+        for feature, score in features_score.items():
+            features_importance.append({'feature': feature, 'importance': score})
 
-        feat_importances = pd.DataFrame(feat_importances)
-        feat_importances = feat_importances.sort_values(by='importance', ascending=False).reset_index(drop=True)
-        feat_importances['importance'] /= feat_importances['importance'].sum()
-        return feat_importances
+        features_importance = pd.DataFrame(features_importance)
+        features_importance = features_importance.sort_values(by='importance', ascending=False).reset_index(drop=True)
+        features_importance['importance'] /= features_importance['importance'].sum()
+        return features_importance
 
+    features_importance_data = get_xgb_feats_importance(model)
 
-    features_importance = get_xgb_feats_importance(model)
-
-    ax = features_importance.head(20).plot.barh(x='feature', y='importance')
-
-    sum(features_importance.head(20)['importance'])
-
-    postfix = str(datetime.now()).replace(' ', '').replace(':', '-').replace('.', '-')
-    with open('model-{}.dump'.format(postfix), 'wb') as fl:
+    with open(s.MODEL_DUMP_FILE, 'wb') as fl:
         pickle.dump(model, fl)
+
+    return features_importance_data

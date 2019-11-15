@@ -18,3 +18,6 @@ generate-lsh-forest:
 
 prepare-training:
 	docker-compose up -d && docker exec -t doppelspeller doppel-speller -vv prepare-training
+
+train-model:
+	docker-compose up -d && docker exec -t doppelspeller doppel-speller -vv train-model

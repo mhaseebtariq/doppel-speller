@@ -42,3 +42,6 @@ TEST_FILE_COLUMNS_MAPPING = {
 # LSH forest settings
 NUMBER_OF_PERMUTATIONS = 128
 LSH_FOREST_OUTPUT_FILE = f'{PROJECT_DATA_PATH}/lsh_forest.dump'
+
+# Training settings
+MODEL_DUMP_FILE = f'{PROJECT_DATA_PATH}/model.dump'

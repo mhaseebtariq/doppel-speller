@@ -93,8 +93,7 @@ def get_test_data():
     return test_data
 
 
-def get_ground_truth_words_counter():
-    ground_truth = get_ground_truth()
+def get_ground_truth_words_counter(ground_truth):
     words = [x for y in ground_truth.loc[:, c.COLUMN_WORDS] for x in y]
     return Counter(words)
 
@@ -113,7 +112,7 @@ def get_min_hash(title, num_perm):
     return min_hash
 
 
-def construct_features(num_truth_words, truth_words, title_to_match, n=15):
+def construct_features(num_truth_words, truth_words, title_to_match, words_counter, number_of_words, n=15):
     title_to_match = title_to_match.replace(' ', '')
     range_title_to_match = range(len(title_to_match))
     
@@ -122,7 +121,7 @@ def construct_features(num_truth_words, truth_words, title_to_match, n=15):
     truth_words = truth_words[:n]
     
     word_lengths = [len(x) for x in truth_words]
-    word_probabilities = [word_probability(x) for x in truth_words]
+    word_probabilities = [word_probability(x, words_counter, number_of_words) for x in truth_words]
     word_probabilities_ranks = list(np.argsort(word_probabilities).argsort() + 1)
     
     best_scores = []
