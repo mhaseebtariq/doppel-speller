@@ -110,36 +110,3 @@ def get_min_hash(title, num_perm):
     min_hash = MinHash(num_perm=num_perm)
     _ = [min_hash.update(str(x).encode('utf8')) for x in title]
     return min_hash
-
-
-def construct_features(num_truth_words, truth_words, title_to_match, words_counter, number_of_words, n=15):
-    title_to_match = title_to_match.replace(' ', '')
-    range_title_to_match = range(len(title_to_match))
-    
-    extra_nans = [np.nan] * (n - num_truth_words)
-    
-    truth_words = truth_words[:n]
-    
-    word_lengths = [len(x) for x in truth_words]
-    word_probabilities = [word_probability(x, words_counter, number_of_words) for x in truth_words]
-    word_probabilities_ranks = list(np.argsort(word_probabilities).argsort() + 1)
-    
-    best_scores = []
-    constructed_title = []
-    for length_truth_word, truth_word in zip(word_lengths, truth_words):
-        possible_words = list(set([title_to_match[i:i+length_truth_word] for i in range_title_to_match]))
-        ratios = [fuzz.ratio(truth_word, i) for i in possible_words]
-        arg_max = np.argmax(ratios)
-        best_score = ratios[arg_max]
-        best_score_match = possible_words[arg_max]
-        constructed_title.append(best_score_match)
-        best_scores.append(best_score)
-    
-    reconstructed_score = fuzz.ratio(' '.join(constructed_title), ' '.join(truth_words))
-    return (
-            (word_lengths + extra_nans)
-            + (word_probabilities + extra_nans)
-            + (word_probabilities_ranks + extra_nans)
-            + (best_scores + extra_nans)
-            + [reconstructed_score]
-    )

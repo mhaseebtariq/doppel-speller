@@ -16,8 +16,11 @@ update-docker:
 generate-lsh-forest:
 	docker-compose up -d && docker exec -t doppelspeller doppel-speller -vv generate-lsh-forest
 
-prepare-training:
-	docker-compose up -d && docker exec -t doppelspeller doppel-speller -vv prepare-training
+prepare-data-for-features-generation:
+	docker-compose up -d && docker exec -t doppelspeller doppel-speller -vv prepare-data-for-features-generation
+
+generate-train-and-evaluation-data-sets:
+	docker-compose up -d && docker exec -t doppelspeller doppel-speller -vv generate-train-and-evaluation-data-sets
 
 train-model:
 	docker-compose up -d && docker exec -t doppelspeller doppel-speller -vv train-model

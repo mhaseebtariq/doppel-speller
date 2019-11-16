@@ -35,20 +35,28 @@ def generate_lsh_forest(**kwargs):
     """Generate the LSH forest for clustering the titles together!"""
     from doppelspeller.clustering import generate_lsh_forest
 
+    LOGGER.info('Generating LSH forest!')
     return generate_lsh_forest(get_ground_truth())
 
 
 @cli.command()
 @time_usage
-def prepare_training(**kwargs):
-    """Prepare data for training the model!"""
-    from doppelspeller.train_preparation import train_preparation, generate_dummy_train_data
+def prepare_data_for_features_generation(**kwargs):
+    """Prepare data for features generation!"""
+    from doppelspeller.feature_engineering import prepare_data_for_features_generation
 
-    LOGGER.info('Preparing train data!')
-    _ = train_preparation()
-    _ = generate_dummy_train_data()
+    LOGGER.info('Preparing data for features generation!')
+    return prepare_data_for_features_generation()
 
-    return
+
+@cli.command()
+@time_usage
+def generate_train_and_evaluation_data_sets(**kwargs):
+    """Generate train and evaluation data-sets!"""
+    from doppelspeller.feature_engineering import generate_train_and_evaluation_data_sets
+
+    LOGGER.info('Generating train and evaluation data-sets!')
+    return generate_train_and_evaluation_data_sets()
 
 
 @cli.command()
@@ -57,4 +65,5 @@ def train_model(**kwargs):
     """Train the model!"""
     from doppelspeller.train import train_model
 
+    LOGGER.info('Training the model!')
     return train_model()

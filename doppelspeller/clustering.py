@@ -28,6 +28,6 @@ def generate_lsh_forest(ground_truth):
     forest.index()
 
     with open(s.LSH_FOREST_OUTPUT_FILE, 'wb') as file_object:
-        pickle.dump(forest, file_object)
+        pickle.dump(forest, file_object, protocol=s.PICKLE_PROTOCOL)
 
     return s.LSH_FOREST_OUTPUT_FILE

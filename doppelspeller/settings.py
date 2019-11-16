@@ -9,6 +9,9 @@ if not PROJECT_DATA_PATH:
     warnings.warn(f'\n\nEnvironment variable PROJECT_DATA_PATH not set! Using {PROJECT_DATA_PATH} as default!\n')
 PROJECT_DATA_PATH = os.path.abspath(PROJECT_DATA_PATH)
 
+# Pickling settings
+PICKLE_PROTOCOL = 3
+
 # Clustering settings
 N_GRAMS = 3
 TRAIN_DATA_NEAREST_N = 10
@@ -45,3 +48,9 @@ LSH_FOREST_OUTPUT_FILE = f'{PROJECT_DATA_PATH}/lsh_forest.dump'
 
 # Training settings
 MODEL_DUMP_FILE = f'{PROJECT_DATA_PATH}/model.dump'
+
+# Features files
+TRAIN_OUTPUT_FILE = f'{PROJECT_DATA_PATH}/train_data.dump'
+TRAIN_TARGET_OUTPUT_FILE = f'{PROJECT_DATA_PATH}/train_target_data.dump'
+EVALUATION_OUTPUT_FILE = f'{PROJECT_DATA_PATH}/evaluation_data.dump'
+EVALUATION_TARGET_OUTPUT_FILE = f'{PROJECT_DATA_PATH}/evaluation_target_data.dump'
