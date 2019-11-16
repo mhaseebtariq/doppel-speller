@@ -24,3 +24,9 @@ generate-train-and-evaluation-data-sets:
 
 train-model:
 	docker-compose up -d && docker exec -t doppelspeller doppel-speller -vv train-model
+
+prepare-predictions-data:
+	docker-compose up -d && docker exec -t doppelspeller doppel-speller -vv prepare-predictions-data
+
+generate-predictions:
+	docker-compose up -d && docker exec -t doppelspeller doppel-speller -vv generate-predictions

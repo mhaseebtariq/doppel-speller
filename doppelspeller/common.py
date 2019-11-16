@@ -4,9 +4,7 @@ from collections import Counter
 
 import unicodedata
 import pandas as pd
-import numpy as np
-from datasketch import MinHashLSHForest, MinHash
-from fuzzywuzzy import fuzz
+from datasketch import MinHash
 
 import doppelspeller.constants as c
 import doppelspeller.settings as s

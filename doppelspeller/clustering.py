@@ -12,7 +12,7 @@ LOGGER = logging.getLogger(__name__)
 
 def generate_lsh_forest(ground_truth):
     LOGGER.info('Generating LSH forest for the ground truth data!')
-    forest = MinHashLSHForest(num_perm=s.NUMBER_OF_PERMUTATIONS, l=32)
+    forest = MinHashLSHForest(num_perm=s.NUMBER_OF_PERMUTATIONS, l=32)  # noqa
     number_of_rows_ground_truth = ground_truth.shape[0]
 
     for count, (title_id, sequences) in enumerate(zip(ground_truth.loc[:, c.COLUMN_TITLE_ID],

@@ -67,3 +67,23 @@ def train_model(**kwargs):
 
     LOGGER.info('Training the model!')
     return train_model()
+
+
+@cli.command()
+@time_usage
+def prepare_predictions_data(**kwargs):
+    """Prepare the predictions data required for generating the predictions!"""
+    from doppelspeller.predict_preparation import prepare_predictions_data
+
+    LOGGER.info('Preparing the predictions data!')
+    return prepare_predictions_data()
+
+
+@cli.command()
+@time_usage
+def generate_predictions(**kwargs):
+    """Generate the predictions!"""
+    from doppelspeller.predict import generate_predictions
+
+    LOGGER.info('Generating the predictions!')
+    return generate_predictions()

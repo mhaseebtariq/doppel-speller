@@ -1,77 +1,80 @@
 import time
 import json
 import sqlite3
+import logging
 import _pickle as pickle
 from concurrent.futures import ProcessPoolExecutor
 
 import numpy as np
 
-SEQUENCES_OF = 3
-NUM_PERM = 128
+import doppelspeller.settings as s
+import doppelspeller.constants as c
+from doppelspeller.common import get_ground_truth, get_min_hash, get_test_data
 
 
-def predict_preparation():
-
-    ground_truth.set_index('company_id', inplace=True)
-    ground_truth.sort_index(inplace=True)
-    ground_truth.loc[:, 'company_id'] = ground_truth.index
-
-    ground_truth.loc[:, 'sequences'] = ground_truth.loc[:, 'transformed_name'].apply(
-        lambda x: get_sequences(x, SEQUENCES_OF)
-    )
-
-    test_data = pd.read_csv('STest.csv', delimiter='|')
-    test_data.loc[:, 'transformed_name'] = test_data.loc[:, 'name'].apply(lambda x: convert_text(x))
-    del test_data['name']
-    del test_data['test_index']
-    test_data.loc[:, 'sequences'] = test_data.loc[:, 'transformed_name'].apply(
-        lambda x: get_sequences(x, SEQUENCES_OF)
-    )
-
-    with open('lsh_forest.dump', 'rb') as fl:
-        lsh_forest = pickle.load(fl)
-
-    connection = sqlite3.connect('data.db')
-    cursor = connection.cursor()
-
-    # Drop table
-    cursor.execute('''DROP TABLE IF EXISTS neighbours;''')
-
-    # Create table
-    cursor.execute('''CREATE TABLE neighbours (test_id INTEGER, matches TEXT);''')
-
-    # Save (commit) the changes
-    connection.commit()
+LOGGER = logging.getLogger(__name__)
+CONNECTION, CURSOR, LSH_FOREST, GROUND_TRUTH = None, None, None, None
 
 
-    def get_nearest_matches(test_index, test_sequences, nearest_in_forest=10000, n_matches=1000):
-        minhash = get_minhash(test_sequences, num_perm=NUM_PERM)
-        nearest_neighbours = lsh_forest.query(minhash, nearest_in_forest)
+def populate_required_data():
+    global LSH_FOREST, GROUND_TRUTH, CONNECTION, CURSOR
 
-        if (not nearest_neighbours) or (not test_sequences):
-            cursor.execute("INSERT INTO neighbours (test_id, matches) values ({}, '{}')".format(
-                test_index, json.dumps([])))
-            connection.commit()
-            return
+    LOGGER.info('Reading LSH forest dump!')
+    with open(s.LSH_FOREST_OUTPUT_FILE, 'rb') as fl:
+        LSH_FOREST = pickle.load(fl)
 
-        nearest_neighbours = ground_truth.loc[ground_truth.index.isin(nearest_neighbours), :]
-        jaccards_indexes = np.argsort(list(
-            map(lambda x: -len(x.intersection(test_sequences)) / len(x.union(test_sequences)),
-                nearest_neighbours['sequences'].values))
-        )[:n_matches]
+    GROUND_TRUTH = get_ground_truth()
+    GROUND_TRUTH.set_index(c.COLUMN_TITLE_ID, inplace=True)
+    GROUND_TRUTH.sort_index(inplace=True)
+    GROUND_TRUTH.loc[:, c.COLUMN_TITLE_ID] = GROUND_TRUTH.index
 
-        matches = [int(x) for x in nearest_neighbours['company_id'].values[jaccards_indexes]]
+    CONNECTION = sqlite3.connect(s.SQLITE_DB)
+    CURSOR = CONNECTION.cursor()
 
-        cursor.execute("INSERT INTO neighbours (test_id, matches) values ({}, '{}')".format(
-            test_index, json.dumps(matches)))
-        connection.commit()
+    return True
 
+
+def save_nearest_matches(test_index, test_sequences):
+    min_hash = get_min_hash(test_sequences, num_perm=s.NUMBER_OF_PERMUTATIONS)
+    nearest_neighbours = LSH_FOREST.query(min_hash, s.FETCH_NEAREST_N_IN_FOREST)
+
+    if (not nearest_neighbours) or (not test_sequences):
+        CURSOR.execute(f"INSERT INTO {s.SQLITE_NEIGHBOURS_TABLE} "
+                       f"(test_id, matches) values ({test_index}, '{json.dumps([])}')")
+        CONNECTION.commit()
         return
 
+    nearest_neighbours = GROUND_TRUTH.loc[GROUND_TRUTH.index.isin(nearest_neighbours), :]
+    distance_indexes = np.argsort(list(
+        map(lambda x: -len(x.intersection(test_sequences)) / len(x.union(test_sequences)),
+            nearest_neighbours[c.COLUMN_SEQUENCES].values))
+    )[:s.TOP_N_RESULTS_IN_FOREST]
+
+    matches = [int(x) for x in nearest_neighbours[c.COLUMN_TITLE_ID].values[distance_indexes]]
+
+    CURSOR.execute(f"INSERT INTO {s.SQLITE_NEIGHBOURS_TABLE} (test_id, matches) values "
+                   f"({test_index}, '{json.dumps(matches)}')")
+    CONNECTION.commit()
+
+    return True
+
+
+def prepare_predictions_data():
+    _ = populate_required_data()
+    test_data = get_test_data()
+
+    # Drop table
+    CURSOR.execute(f"DROP TABLE IF EXISTS {s.SQLITE_NEIGHBOURS_TABLE};")
+
+    # Create table
+    CURSOR.execute(f"CREATE TABLE {s.SQLITE_NEIGHBOURS_TABLE} (test_id INTEGER, matches TEXT);")
+
+    # Save (commit) the changes
+    CONNECTION.commit()
 
     executor = ProcessPoolExecutor(max_workers=3)
     threads = [
-        executor.submit(get_nearest_matches, index, row['sequences']) for index, row in test_data.iterrows()
+        executor.submit(save_nearest_matches, index, row[c.COLUMN_SEQUENCES]) for index, row in test_data.iterrows()
     ]
 
     running = sum([x.running() for x in threads])
@@ -79,8 +82,8 @@ def predict_preparation():
         time.sleep(0.5)
         running = sum([x.running() for x in threads])
 
-    cursor.execute("CREATE UNIQUE INDEX id_index ON neighbours (test_id);")
-    connection.commit()
+    CURSOR.execute(f"CREATE UNIQUE INDEX id_index ON {s.SQLITE_NEIGHBOURS_TABLE} (test_id);")
+    CONNECTION.commit()
 
-    cursor.execute("SELECT COUNT(*) FROM neighbours LIMIT 1")
-    print(cursor.fetchone()[0])
+    CURSOR.execute(f"SELECT COUNT(*) FROM {s.SQLITE_NEIGHBOURS_TABLE} LIMIT 1")
+    LOGGER.info(f"Inserted {CURSOR.fetchone()[0]} rows in to table {s.SQLITE_NEIGHBOURS_TABLE}")

@@ -54,3 +54,14 @@ TRAIN_OUTPUT_FILE = f'{PROJECT_DATA_PATH}/train_data.dump'
 TRAIN_TARGET_OUTPUT_FILE = f'{PROJECT_DATA_PATH}/train_target_data.dump'
 EVALUATION_OUTPUT_FILE = f'{PROJECT_DATA_PATH}/evaluation_data.dump'
 EVALUATION_TARGET_OUTPUT_FILE = f'{PROJECT_DATA_PATH}/evaluation_target_data.dump'
+
+# SQLITE settings
+SQLITE_DB = f'{PROJECT_DATA_PATH}/data.db'
+SQLITE_NEIGHBOURS_TABLE = 'neighbours'
+SQLITE_PREDICTIONS_TABLE = 'predictions'
+
+# Prepare predictions data
+FETCH_NEAREST_N_IN_FOREST = 10000
+TOP_N_RESULTS_IN_FOREST = 1000
+
+FINAL_OUTPUT_FILE = f'{PROJECT_DATA_PATH}/final_output.csv'
