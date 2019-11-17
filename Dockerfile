@@ -1,5 +1,5 @@
 FROM ubuntu:bionic-20191029
-MAINTAINER Haseeb Tariq <haseeb.tariq@brandloyalty-int.com>
+MAINTAINER Haseeb Tariq <mhaseebtariq@gmail.com>
 
 RUN apt-get -y update
 RUN apt-get -y install build-essential checkinstall wget
