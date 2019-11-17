@@ -30,3 +30,6 @@ prepare-predictions-data:
 
 generate-predictions:
 	docker-compose up -d && docker exec -t doppelspeller doppel-speller -vv generate-predictions
+
+extensive-search-single-title:
+	docker-compose up -d && docker exec -t doppelspeller doppel-speller -vv extensive-search-single-title

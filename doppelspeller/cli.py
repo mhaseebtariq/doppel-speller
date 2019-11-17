@@ -73,17 +73,36 @@ def train_model(**kwargs):
 @time_usage
 def prepare_predictions_data(**kwargs):
     """Prepare the predictions data required for generating the predictions!"""
-    from doppelspeller.predict_preparation import prepare_predictions_data
+    from doppelspeller.predict_preparation import PrePredictionData
 
     LOGGER.info('Preparing the predictions data!')
-    return prepare_predictions_data()
+    pre_prediction_data = PrePredictionData()
+    return pre_prediction_data.process()
 
 
 @cli.command()
 @time_usage
 def generate_predictions(**kwargs):
     """Generate the predictions!"""
-    from doppelspeller.predict import generate_predictions
+    from doppelspeller.predict import Prediction
 
     LOGGER.info('Generating the predictions!')
-    return generate_predictions()
+    prediction = Prediction()
+    return prediction.process()
+
+
+@cli.command()
+@click.option('-t', '--title-to-search', 'title', default='Wilhelm tJosten Inc Söhne GmbH')
+@time_usage
+def extensive_search_single_title(**kwargs):
+    """Extensive search single title!"""
+    from doppelspeller.predict import Prediction
+
+    LOGGER.info('Searching for the closest match!')
+
+    prediction = Prediction()
+    found = prediction.extensive_search_single_title(kwargs['title'])
+
+    LOGGER.info(f'Title: {kwargs["title"]}')
+    LOGGER.info(f'Closest match: {found}')
+    return found

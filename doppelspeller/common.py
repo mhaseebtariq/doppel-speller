@@ -116,7 +116,7 @@ def wait_for_multiprocessing_threads(threads):
     done_threads = [x for x in threads if x.done()]
     done_threads_count = len(done_threads)
     while done_threads_count != all_threads_count:
-        time.sleep(5)
+        time.sleep(10)
         LOGGER.info(f'Processed {done_threads_count} out of {all_threads_count}...')
 
         exception_threads = [x for x in done_threads if x.exception()]

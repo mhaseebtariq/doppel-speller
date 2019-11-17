@@ -241,13 +241,14 @@ def generate_train_and_evaluation_data_sets():
     ground_truth_mapping = ground_truth_mapping.to_dict()[c.COLUMN_TRANSFORMED_TITLE]
 
     train_data = get_train_data()
-    train_data.loc[:, 'index'] = list(train_data.index)
+    train_data.loc[:, c.COLUMN_TRAIN_INDEX_COLUMN] = list(train_data.index)
     train_data = train_data.set_index(c.COLUMN_TITLE_ID)
     del train_data[c.COLUMN_TITLE]
     train_data_mapping = train_data.to_dict()[c.COLUMN_TRANSFORMED_TITLE]
 
     train_data_negatives_mapping = train_data[train_data.index == s.TRAIN_NOT_FOUND_VALUE].copy(deep=True)
-    train_data_negatives_mapping = train_data_negatives_mapping.set_index('index').to_dict()[c.COLUMN_TRANSFORMED_TITLE]
+    train_data_negatives_mapping = train_data_negatives_mapping.set_index(
+        c.COLUMN_TRAIN_INDEX_COLUMN).to_dict()[c.COLUMN_TRANSFORMED_TITLE]
 
     generated_training_data = pd.read_pickle(s.GENERATED_TRAINING_DATA_FILE)
 
@@ -282,44 +283,45 @@ def generate_train_and_evaluation_data_sets():
     training_rows_final = training_rows_negative + training_rows + training_rows_generated
 
     train = pd.DataFrame(training_rows_final, columns=[
-        'kind', 'title', 'title_words', 'truth_title', 'truth_title_words', 'target'])
+        c.COLUMN_TRAIN_KIND, c.COLUMN_TITLE, c.COLUMN_WORDS,
+        c.COLUMN_TRUTH_TITLE, c.COLUMN_TRUTH_WORDS, c.COLUMN_TARGET])
 
-    train.loc[:, 'number_of_characters'] = train.loc[:, 'title'].apply(
+    train.loc[:, c.COLUMN_NUMBER_OF_CHARACTERS] = train.loc[:, c.COLUMN_TITLE].apply(
         lambda x: len(x)
     )
-    train.loc[:, 'truth_number_of_characters'] = train.loc[:, 'truth_title'].apply(
+    train.loc[:, c.COLUMN_TRUTH_NUMBER_OF_CHARACTERS] = train.loc[:, c.COLUMN_TRUTH_TITLE].apply(
         lambda x: len(x)
     )
-    train.loc[:, 'number_of_words'] = train.loc[:, 'title_words'].apply(
+    train.loc[:, c.COLUMN_NUMBER_OF_WORDS] = train.loc[:, c.COLUMN_WORDS].apply(
         lambda x: len(x)
     )
-    train.loc[:, 'truth_number_of_words'] = train.loc[:, 'truth_title_words'].apply(
+    train.loc[:, c.COLUMN_TRUTH_NUMBER_OF_WORDS] = train.loc[:, c.COLUMN_TRUTH_WORDS].apply(
         lambda x: len(x)
     )
-    train.loc[:, 'distance'] = list(
-        map(lambda x: fuzz.ratio(x[0], x[1]), zip(train.loc[:, 'title'], train.loc[:, 'truth_title'])))
+    train.loc[:, c.COLUMN_DISTANCE] = list(
+        map(lambda x: fuzz.ratio(x[0], x[1]), zip(train.loc[:, c.COLUMN_TITLE], train.loc[:, c.COLUMN_TRUTH_TITLE])))
 
     LOGGER.info('Constructing features!')
     words_counter = get_ground_truth_words_counter(ground_truth)
     number_of_words = len(words_counter)
     extra_features = list(map(lambda x: construct_features(x[0], x[1], x[2], words_counter, number_of_words), zip(
-        train.loc[:, 'truth_number_of_words'],
-        train.loc[:, 'truth_title_words'],
-        train.loc[:, 'title'])))
+        train.loc[:, c.COLUMN_TRUTH_NUMBER_OF_WORDS],
+        train.loc[:, c.COLUMN_TRUTH_WORDS],
+        train.loc[:, c.COLUMN_TITLE])))
 
     columns = ['truth_{}th_word_length'.format(x + 1) for x in range(15)]
     columns += ['truth_{}th_word_probability'.format(x + 1) for x in range(15)]
     columns += ['truth_{}th_word_probability_rank'.format(x + 1) for x in range(15)]
     columns += ['truth_{}th_word_best_match_score'.format(x + 1) for x in range(15)]
-    columns.append('reconstructed_score')
+    columns.append(c.COLUMN_RECONSTRUCTED_SCORE)
 
     extra = pd.DataFrame(extra_features, columns=columns)
 
     train = train.merge(extra, right_index=True, left_index=True)
 
-    evaluation_generated = train.loc[train['kind'] == 1, :].sample(frac=0.05).copy(deep=True)
-    evaluation_negative = train.loc[train['kind'] == 2, :].sample(frac=0.1).copy(deep=True)
-    evaluation_positive = train.loc[train['kind'] == 3, :].sample(frac=0.05).copy(deep=True)
+    evaluation_generated = train.loc[train[c.COLUMN_TRAIN_KIND] == 1, :].sample(frac=0.05).copy(deep=True)
+    evaluation_negative = train.loc[train[c.COLUMN_TRAIN_KIND] == 2, :].sample(frac=0.1).copy(deep=True)
+    evaluation_positive = train.loc[train[c.COLUMN_TRAIN_KIND] == 3, :].sample(frac=0.05).copy(deep=True)
 
     evaluation = pd.concat([evaluation_generated, evaluation_negative, evaluation_positive])
 
@@ -330,16 +332,16 @@ def generate_train_and_evaluation_data_sets():
 
     evaluation = evaluation.reset_index(drop=True)
 
-    del train['kind']
-    del evaluation['kind']
+    del train[c.COLUMN_TRAIN_KIND]
+    del evaluation[c.COLUMN_TRAIN_KIND]
 
     train_set = train.loc[:, ~train.columns.isin(
-        ['title', 'title_words', 'truth_title', 'truth_title_words', 'target'])]
-    train_set_target = train.loc[:, 'target']
+        [c.COLUMN_TITLE, c.COLUMN_WORDS, c.COLUMN_TRUTH_TITLE, c.COLUMN_TRUTH_WORDS, c.COLUMN_TARGET])]
+    train_set_target = train.loc[:, c.COLUMN_TARGET]
 
     evaluation_set = evaluation.loc[:, ~evaluation.columns.isin(
-        ['title', 'title_words', 'truth_title', 'truth_title_words', 'target'])]
-    evaluation_set_target = evaluation.loc[:, 'target']
+        [c.COLUMN_TITLE, c.COLUMN_WORDS, c.COLUMN_TRUTH_TITLE, c.COLUMN_TRUTH_WORDS, c.COLUMN_TARGET])]
+    evaluation_set_target = evaluation.loc[:, c.COLUMN_TARGET]
 
     train_set.to_pickle(s.TRAIN_OUTPUT_FILE, protocol=s.PICKLE_PROTOCOL)
     train_set_target.to_pickle(s.TRAIN_TARGET_OUTPUT_FILE, protocol=s.PICKLE_PROTOCOL)
