@@ -1,4 +1,3 @@
-import time
 import json
 import sqlite3
 import logging
@@ -9,7 +8,7 @@ import numpy as np
 
 import doppelspeller.settings as s
 import doppelspeller.constants as c
-from doppelspeller.common import get_ground_truth, get_min_hash, get_test_data
+from doppelspeller.common import get_ground_truth, get_min_hash, get_test_data, wait_for_multiprocessing_threads
 
 
 LOGGER = logging.getLogger(__name__)
@@ -50,7 +49,7 @@ def save_nearest_matches(test_index, test_sequences):
             nearest_neighbours[c.COLUMN_SEQUENCES].values))
     )[:s.TOP_N_RESULTS_IN_FOREST]
 
-    matches = [int(x) for x in nearest_neighbours[c.COLUMN_TITLE_ID].values[distance_indexes]]
+    matches = [x for x in nearest_neighbours[c.COLUMN_TITLE_ID].values[distance_indexes]]
 
     CURSOR.execute(f"INSERT INTO {s.SQLITE_NEIGHBOURS_TABLE} (test_id, matches) values "
                    f"({test_index}, '{json.dumps(matches)}')")
@@ -76,11 +75,7 @@ def prepare_predictions_data():
     threads = [
         executor.submit(save_nearest_matches, index, row[c.COLUMN_SEQUENCES]) for index, row in test_data.iterrows()
     ]
-
-    running = sum([x.running() for x in threads])
-    while running != 0:
-        time.sleep(0.5)
-        running = sum([x.running() for x in threads])
+    wait_for_multiprocessing_threads(threads)
 
     CURSOR.execute(f"CREATE UNIQUE INDEX id_index ON {s.SQLITE_NEIGHBOURS_TABLE} (test_id);")
     CONNECTION.commit()

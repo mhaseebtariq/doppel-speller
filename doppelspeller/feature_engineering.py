@@ -296,7 +296,7 @@ def generate_train_and_evaluation_data_sets():
     train.loc[:, 'truth_number_of_words'] = train.loc[:, 'truth_title_words'].apply(
         lambda x: len(x)
     )
-    train.loc[:, 'levenshtein'] = list(
+    train.loc[:, 'distance'] = list(
         map(lambda x: fuzz.ratio(x[0], x[1]), zip(train.loc[:, 'title'], train.loc[:, 'truth_title'])))
 
     LOGGER.info('Constructing features!')

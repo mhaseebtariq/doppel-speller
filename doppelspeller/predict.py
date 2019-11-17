@@ -12,16 +12,22 @@ import xgboost as xgb
 
 import doppelspeller.settings as s
 import doppelspeller.constants as c
-from doppelspeller.common import get_ground_truth, get_test_data
-from doppelspeller.feature_engineering import construct_features
+from doppelspeller.common import get_ground_truth, get_test_data, wait_for_multiprocessing_threads
+from doppelspeller.feature_engineering import construct_features, get_ground_truth_words_counter
+
 
 LOGGER = logging.getLogger(__name__)
-CONNECTION, CURSOR, LSH_FOREST, GROUND_TRUTH, GROUND_TRUTH_MAPPING_REVERSED, GROUND_TRUTH_MAPPING, MODEL = (
-    None, None, None, None, None, None, None)
+(
+    CONNECTION, CURSOR, LSH_FOREST, GROUND_TRUTH, GROUND_TRUTH_MAPPING_REVERSED, GROUND_TRUTH_MAPPING, MODEL,
+    WORDS_COUNTER,NUMBER_OF_WORDS
+) = (
+    None, None, None, None, None, None, None, None, None
+)
 
 
 def populate_required_data():
-    global LSH_FOREST, MODEL, GROUND_TRUTH, GROUND_TRUTH_MAPPING, GROUND_TRUTH_MAPPING_REVERSED, CONNECTION, CURSOR
+    global LSH_FOREST, MODEL, GROUND_TRUTH, GROUND_TRUTH_MAPPING, GROUND_TRUTH_MAPPING_REVERSED, CONNECTION, CURSOR, \
+        WORDS_COUNTER, NUMBER_OF_WORDS
 
     LOGGER.info('Reading LSH forest dump!')
     with open(s.LSH_FOREST_OUTPUT_FILE, 'rb') as fl:
@@ -50,6 +56,9 @@ def populate_required_data():
     with open(s.MODEL_DUMP_FILE, 'rb') as fl:
         MODEL = pickle.load(fl)
 
+    WORDS_COUNTER = get_ground_truth_words_counter(GROUND_TRUTH)
+    NUMBER_OF_WORDS = len(WORDS_COUNTER)
+
     return True
 
 
@@ -77,6 +86,8 @@ def generate_single_prediction(index, title_to_match):
     all_nearest_found = get_nearest_matches(index)
 
     for matches_nearest in [all_nearest_found[0:10], all_nearest_found[10:100], all_nearest_found[100:]]:
+        if not matches_nearest:
+            continue
 
         matches = [GROUND_TRUTH_MAPPING[x] for x in matches_nearest]
         len_matches = len(matches)
@@ -91,7 +102,7 @@ def generate_single_prediction(index, title_to_match):
         number_of_words = [len(title_to_match_words)] * len_matches
         distance = list(map(lambda x: fuzz.ratio(x[0], x[1]), zip(truth_title, title)))
 
-        extra_features = list(map(lambda x: construct_features(x[0], x[1], x[2]), zip(
+        extra_features = list(map(lambda x: construct_features(x[0], x[1], x[2], WORDS_COUNTER, NUMBER_OF_WORDS), zip(
             truth_number_of_words,
             truth_title_words,
             title)))
@@ -200,11 +211,7 @@ def generate_predictions():
         executor.submit(generate_single_prediction, index, row[c.COLUMN_TRANSFORMED_TITLE])
         for index, row in test_data.loc[~test_data.index.isin(matched_so_far), :].iterrows()
     ]
-
-    running = sum([x.running() for x in threads])
-    while running != 0:
-        time.sleep(0.5)
-        running = sum([x.running() for x in threads])
+    wait_for_multiprocessing_threads(threads)
 
     submission = pd.read_sql(
         f"SELECT test_id AS test_index, best_match_id AS {c.COLUMN_TITLE_ID} "
