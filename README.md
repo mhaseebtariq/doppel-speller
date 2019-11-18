@@ -1,6 +1,6 @@
 # DoppelSpeller
 
-Finds the best match for a misspelled title!
+Finds the best match for a misspelled title.<br/><br/>
 ![Project description](./description.jpg)
 
 ## Setup
