@@ -84,7 +84,6 @@ class PrePredictionData:
             executor.submit(self._save_nearest_matches, index, row[c.COLUMN_SEQUENCES])
             for index, row in self.test_data.iterrows()
         ]
-        LOGGER.info('Waiting for the multi processing threads to complete!')
         wait_for_multiprocessing_threads(threads)
 
         # Creating index on the SQLite table

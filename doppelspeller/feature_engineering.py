@@ -257,7 +257,7 @@ def generate_train_and_evaluation_data_sets():
         truth_title = row[c.COLUMN_TRANSFORMED_TITLE]
         title = row[c.COLUMN_GENERATED_MISSPELLED_TITLE]
         training_rows_generated.append(
-            [1, title, title.split(' '), truth_title, truth_title.split(' '), 1])
+            [c.TRAINING_KIND_GENERATED, title, title.split(' '), truth_title, truth_title.split(' '), 1])
 
     training_rows_negative = []
     for train_index, titles in training_data_negative.items():
@@ -267,7 +267,7 @@ def generate_train_and_evaluation_data_sets():
             truth_title_words = truth_title.split(' ')
             title_words = title.split(' ')
             training_rows_negative.append(
-                [2, title, title_words, truth_title, truth_title_words, 0])
+                [c.TRAINING_KIND_NEGATIVE, title, title_words, truth_title, truth_title_words, 0])
 
     training_rows = []
     for title_id, titles in training_data_input.items():
@@ -277,7 +277,7 @@ def generate_train_and_evaluation_data_sets():
             truth_title_words = truth_title.split(' ')
             title_words = title.split(' ')
             training_rows.append(
-                [3, title, title_words, truth_title, truth_title_words,
+                [c.TRAINING_KIND_POSITIVE, title, title_words, truth_title, truth_title_words,
                  int(title_id == truth_title_id)])
 
     training_rows_final = training_rows_negative + training_rows + training_rows_generated
@@ -319,9 +319,12 @@ def generate_train_and_evaluation_data_sets():
 
     train = train.merge(extra, right_index=True, left_index=True)
 
-    evaluation_generated = train.loc[train[c.COLUMN_TRAIN_KIND] == 1, :].sample(frac=0.05).copy(deep=True)
-    evaluation_negative = train.loc[train[c.COLUMN_TRAIN_KIND] == 2, :].sample(frac=0.1).copy(deep=True)
-    evaluation_positive = train.loc[train[c.COLUMN_TRAIN_KIND] == 3, :].sample(frac=0.05).copy(deep=True)
+    evaluation_generated = train.loc[train[c.COLUMN_TRAIN_KIND] == c.TRAINING_KIND_GENERATED, :].sample(
+        frac=s.EVALUATION_FRACTION_GENERATED_DATA).copy(deep=True)
+    evaluation_negative = train.loc[train[c.COLUMN_TRAIN_KIND] == c.TRAINING_KIND_NEGATIVE, :].sample(
+        frac=s.EVALUATION_FRACTION_NEGATIVE_DATA).copy(deep=True)
+    evaluation_positive = train.loc[train[c.COLUMN_TRAIN_KIND] == c.TRAINING_KIND_POSITIVE, :].sample(
+        frac=s.EVALUATION_FRACTION_POSITIVE_DATA).copy(deep=True)
 
     evaluation = pd.concat([evaluation_generated, evaluation_negative, evaluation_positive])
 

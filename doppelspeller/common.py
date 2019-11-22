@@ -112,6 +112,8 @@ def get_min_hash(title, num_perm):
 
 
 def wait_for_multiprocessing_threads(threads):
+    LOGGER.info('Waiting for the multi processing threads to complete!')
+
     all_threads_count = len(threads)
     done_threads = [x for x in threads if x.done()]
     done_threads_count = len(done_threads)
@@ -127,3 +129,5 @@ def wait_for_multiprocessing_threads(threads):
 
         done_threads = [x for x in threads if x.done()]
         done_threads_count = len(done_threads)
+
+    LOGGER.info('Multi processing threads completed!')
