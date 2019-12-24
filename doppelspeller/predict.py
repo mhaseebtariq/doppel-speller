@@ -105,13 +105,13 @@ class Prediction:
             prediction_features = np.zeros((len(matches_nearest),), dtype=s.FEATURES_TYPES)
             prediction_features[:] = np.nan
             matches = []
-            for index, match_index in enumerate(matches_nearest):
+            for matrix_index, match_index in enumerate(matches_nearest):
                 match = GROUND_TRUTH_MAPPING[match_index]
                 matches.append(match)
                 kind, title, truth_title, target = (
                     np.nan, title_to_match, match, np.nan
                 )
-                prediction_features[index] = construct_features(kind, title, truth_title, target)
+                prediction_features[matrix_index] = construct_features(kind, title, truth_title, target)
 
             prediction_features_set = np.array(prediction_features.tolist(), dtype=np.float16)
             features_names = list(prediction_features.dtype.names)
