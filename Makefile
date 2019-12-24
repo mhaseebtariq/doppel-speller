@@ -1,5 +1,5 @@
 clean:
-	find . | grep -E '(\.cache|__pycache__|\.pyc|\.pyo$\)' | xargs rm -rvf
+	find . | grep -E '(\.pytest_cache|\.cache|__pycache__|\.pyc|\.pyo$\)' | xargs rm -rvf
 	rm -r build/ dist/ .eggs/ .cache/ *.egg-info/ || echo '1'
 
 build:

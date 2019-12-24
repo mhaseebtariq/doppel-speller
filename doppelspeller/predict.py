@@ -4,7 +4,6 @@ import logging
 import _pickle as pickle
 from concurrent.futures import ProcessPoolExecutor
 
-import psutil
 import pandas as pd
 import numpy as np
 from fuzzywuzzy import fuzz
@@ -12,7 +11,8 @@ import xgboost as xgb
 
 import doppelspeller.settings as s
 import doppelspeller.constants as c
-from doppelspeller.common import get_ground_truth, get_test_data, wait_for_multiprocessing_threads, transform_title
+from doppelspeller.common import (get_ground_truth, get_test_data, wait_for_multiprocessing_threads, transform_title,
+                                  get_number_of_cpu_workers)
 from doppelspeller.feature_engineering import construct_features, get_ground_truth_words_counter
 
 
@@ -24,7 +24,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 class Prediction:
-    def __init__(self, number_of_workers=psutil.cpu_count(logical=False) - 1):
+    def __init__(self, number_of_workers=get_number_of_cpu_workers()):
         if number_of_workers < 1:
             number_of_workers = 1
         self.number_of_workers = number_of_workers
@@ -76,11 +76,6 @@ class Prediction:
         self.already_populated_required_data = True
 
     @staticmethod
-    def _get_features_names():
-        evaluation_set = pd.read_pickle(s.EVALUATION_OUTPUT_FILE)
-        return list(evaluation_set.columns)
-
-    @staticmethod
     def _get_nearest_matches(test_id):
         query = f'SELECT matches from {s.SQLITE_NEIGHBOURS_TABLE} WHERE test_id={test_id}'
         CURSOR.execute(query)
@@ -96,7 +91,6 @@ class Prediction:
 
     @staticmethod
     def _generate_single_prediction(index, title_to_match, find_closest=False):
-        title_to_match_words = title_to_match.split(' ')
         if find_closest:
             all_nearest_found = list(GROUND_TRUTH.index)
             matches_chunk = [all_nearest_found]
@@ -108,35 +102,24 @@ class Prediction:
             if not matches_nearest:
                 continue
 
-            matches = [GROUND_TRUTH_MAPPING[x] for x in matches_nearest]
-            len_matches = len(matches)
+            prediction_features = np.zeros((len(matches_nearest),), dtype=s.FEATURES_TYPES)
+            prediction_features[:] = np.nan
+            matches = []
+            for index, match_index in enumerate(matches_nearest):
+                match = GROUND_TRUTH_MAPPING[match_index]
+                matches.append(match)
+                kind, title, truth_title, target = (
+                    np.nan, title_to_match, match, np.nan
+                )
+                prediction_features[index] = construct_features(kind, title, truth_title, target)
 
-            truth_title = [x[c.COLUMN_TRUTH_TITLE] for x in matches]
-            truth_number_of_words = [x[c.COLUMN_TRUTH_NUMBER_OF_WORDS] for x in matches]
-            truth_title_words = [x[c.COLUMN_TRUTH_WORDS] for x in matches]
-            truth_number_of_characters = [x[c.COLUMN_TRUTH_NUMBER_OF_CHARACTERS] for x in matches]
+            prediction_features_set = np.array(prediction_features.tolist(), dtype=np.float16)
+            features_names = list(prediction_features.dtype.names)
+            del prediction_features
 
-            title = [title_to_match] * len_matches
-            number_of_characters = [len(title_to_match)] * len_matches
-            number_of_words = [len(title_to_match_words)] * len_matches
-            distance = list(map(lambda x: fuzz.ratio(x[0], x[1]), zip(truth_title, title)))
-
-            zipped_data = zip(truth_number_of_words, truth_title_words, title)
-            extra_features = list(map(lambda x: construct_features(x[0], x[1], x[2], WORDS_COUNTER, NUMBER_OF_WORDS),
-                                      zipped_data))
-
-            features = np.array([
-                number_of_characters,
-                truth_number_of_characters,
-                number_of_words,
-                truth_number_of_words,
-                distance
-            ])
-
-            features = np.concatenate([features.T, extra_features], axis=1)
-
-            d_test = xgb.DMatrix(features, feature_names=Prediction._get_features_names())
+            d_test = xgb.DMatrix(prediction_features_set, feature_names=features_names)
             predictions = MODEL.predict(d_test)
+
             best_match_index = np.argmax(predictions)
             best_match = matches[best_match_index][c.COLUMN_TRUTH_TITLE]
             best_match_id = matches_nearest[best_match_index]

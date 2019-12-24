@@ -1,6 +1,8 @@
 import os
 import warnings
 
+import numpy as np
+
 import doppelspeller.constants as c
 
 PROJECT_DATA_PATH = os.environ.get('PROJECT_DATA_PATH')
@@ -63,6 +65,7 @@ EVALUATION_TARGET_OUTPUT_FILE = f'{PROJECT_DATA_PATH}/evaluation_target_data.dum
 SQLITE_DB = f'{PROJECT_DATA_PATH}/data.db'
 SQLITE_NEIGHBOURS_TABLE = 'neighbours'
 SQLITE_PREDICTIONS_TABLE = 'predictions'
+SQLITE_FEATURES_INPUT_TABLE = 'features_input'
 
 # Prepare predictions data
 FETCH_NEAREST_N_IN_FOREST = 10
@@ -70,3 +73,23 @@ TOP_N_RESULTS_IN_FOREST = 5
 
 # Predictions settings
 FINAL_OUTPUT_FILE = f'{PROJECT_DATA_PATH}/final_output.csv'
+
+# Features settings
+NUMBER_OF_WORDS_FEATURES = 15
+FEATURES_TYPES = [
+    (c.COLUMN_TRAIN_KIND, np.dtype('u1')),
+    (c.COLUMN_NUMBER_OF_CHARACTERS, np.dtype('u1')),
+    (c.COLUMN_TRUTH_NUMBER_OF_CHARACTERS, np.dtype('u1')),
+    (c.COLUMN_NUMBER_OF_WORDS, np.dtype('u1')),
+    (c.COLUMN_TRUTH_NUMBER_OF_WORDS, np.dtype('u1')),
+    (c.COLUMN_DISTANCE, np.dtype('u1')),
+]
+FEATURES_TYPES += [(c.COLUMN_TRUTH_TH_WORD_LENGTH.format(x + 1), np.float16)
+                   for x in range(NUMBER_OF_WORDS_FEATURES)]
+FEATURES_TYPES += [(c.COLUMN_TRUTH_TH_WORD_PROBABILITY.format(x + 1), np.float16)
+                   for x in range(NUMBER_OF_WORDS_FEATURES)]
+FEATURES_TYPES += [(c.COLUMN_TRUTH_TH_WORD_PROBABILITY_RANK.format(x + 1), np.float16)
+                   for x in range(NUMBER_OF_WORDS_FEATURES)]
+FEATURES_TYPES += [(c.COLUMN_TRUTH_TH_WORD_BEST_MATCH_SCORE.format(x + 1), np.float16)
+                   for x in range(NUMBER_OF_WORDS_FEATURES)]
+FEATURES_TYPES += [(c.COLUMN_RECONSTRUCTED_SCORE, np.dtype('u1')), (c.COLUMN_TARGET, np.bool)]

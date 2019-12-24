@@ -1,8 +1,10 @@
 import re
 import time
 import logging
+import math
 from collections import Counter
 
+import psutil
 import unicodedata
 import pandas as pd
 from datasketch import MinHash
@@ -17,13 +19,30 @@ SUBSTITUTE_REGEX = re.compile(r'[\s\-]+')
 KEEP_REGEX = re.compile(r'[a-zA-Z0-9\s]')
 
 
+def get_number_of_cpu_workers():
+    count = psutil.cpu_count(logical=False) - 1
+    if count == 0:
+        LOGGER.warning(
+            'Running the multiprocessing code with max_workers=1 because the machine is single core. '
+            'This can slow things up!'
+        )
+    return count or 1
+
+
 def transform_title(title):
     # Remove accents
     text = unicodedata.normalize('NFD', title)
     text = text.encode('ascii', 'ignore').decode('utf-8').lower()
     # Extract only alphanumeric characters / convert to lower case
     text = SUBSTITUTE_REGEX.sub(' ', text).strip()
-    return ''.join(KEEP_REGEX.findall(text))
+    text = ''.join(KEEP_REGEX.findall(text))
+    if len(text) > 256:
+        LOGGER.warning(
+            'Titles greater than length 256 are not allowed. Trimming the title!\n'
+            'This is because of the data types set in FEATURES_TYPES (settings.py).'
+        )
+        text = text[:256]
+    return text
 
 
 def read_and_transform_input_csv(input_file, input_file_delimiter, file_columns_mapping):
@@ -101,8 +120,10 @@ def get_sequences(words, n_grams):
     return set([words[i:i+n_grams] for i in range(len(words)) if len(words[i:i+n_grams]) == n_grams])
 
 
-def word_probability(word, words_counter, number_of_words):
-    return words_counter[word] / number_of_words
+def tf_idf(word, words_counter, number_of_titles):
+    tf = words_counter[word] / number_of_titles
+    idf = math.log(number_of_titles / words_counter[word])
+    return tf * idf
 
 
 def get_min_hash(title, num_perm):

@@ -2,6 +2,7 @@ import logging
 import _pickle as pickle
 
 import pandas as pd
+import numpy as np
 import xgboost as xgb
 
 import doppelspeller.settings as s
@@ -48,15 +49,26 @@ def get_xgb_feats_importance(model):
 
 
 def train_model():
-    train_set = pd.read_pickle(s.TRAIN_OUTPUT_FILE)
-    train_set_target = pd.read_pickle(s.TRAIN_TARGET_OUTPUT_FILE)
-    evaluation_set = pd.read_pickle(s.EVALUATION_OUTPUT_FILE)
-    evaluation_set_target = pd.read_pickle(s.EVALUATION_TARGET_OUTPUT_FILE)
+    with open(s.TRAIN_OUTPUT_FILE, 'rb') as fl:
+        train = pickle.load(fl)
+    with open(s.TRAIN_TARGET_OUTPUT_FILE, 'rb') as fl:
+        train_target = pickle.load(fl)
+    with open(s.EVALUATION_OUTPUT_FILE, 'rb') as fl:
+        evaluation = pickle.load(fl)
+    with open(s.EVALUATION_TARGET_OUTPUT_FILE, 'rb') as fl:
+        evaluation_target = pickle.load(fl)
 
-    d_train = xgb.DMatrix(train_set.values, label=train_set_target, feature_names=train_set.columns)
-    d_evaluation = xgb.DMatrix(evaluation_set.values, label=evaluation_set_target, feature_names=evaluation_set.columns)
+    train_set = np.array(train.tolist(), dtype=np.float16)
+    features_names = list(train.dtype.names)
+    del train
 
-    scale_pos_weight = sum(train_set_target == 0) / sum(train_set_target == 1)
+    evaluation_set = np.array(evaluation.tolist(), dtype=np.float16)
+    del evaluation
+
+    d_train = xgb.DMatrix(train_set, label=train_target, feature_names=features_names)
+    d_evaluation = xgb.DMatrix(evaluation_set, label=evaluation_target, feature_names=features_names)
+
+    scale_pos_weight = sum(train_target == 0) / sum(train_target == 1)
 
     watch_list = [(d_train, 'train'), (d_evaluation, 'evaluation')]
     params = {

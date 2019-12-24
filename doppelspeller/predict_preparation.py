@@ -6,10 +6,10 @@ from concurrent.futures import ProcessPoolExecutor
 
 import numpy as np
 
-import psutil
 import doppelspeller.settings as s
 import doppelspeller.constants as c
-from doppelspeller.common import get_ground_truth, get_min_hash, get_test_data, wait_for_multiprocessing_threads
+from doppelspeller.common import (get_ground_truth, get_min_hash, get_test_data, wait_for_multiprocessing_threads,
+                                  get_number_of_cpu_workers)
 
 
 LOGGER = logging.getLogger(__name__)
@@ -17,12 +17,12 @@ LSH_FOREST, GROUND_TRUTH, CONNECTION, CURSOR = None, None, None, None
 
 
 class PrePredictionData:
-    def __init__(self, number_of_workers=psutil.cpu_count(logical=False)-1):
+    def __init__(self, number_of_workers=get_number_of_cpu_workers()):
         if number_of_workers < 1:
             number_of_workers = 1
         self.number_of_workers = number_of_workers
 
-    def _populate_required_data(self):
+    def _populate_pre_requisite_data(self):
         global LSH_FOREST, GROUND_TRUTH, CONNECTION, CURSOR
 
         LOGGER.info('Reading LSH forest dump!')
@@ -71,11 +71,12 @@ class PrePredictionData:
     def _prepare_output_database_table(self):
         # Creating the SQLite table
         self.cursor.execute(f"DROP TABLE IF EXISTS {s.SQLITE_NEIGHBOURS_TABLE};")
+        self.cursor.execute(f"DROP INDEX IF EXISTS neighbours_id_index;")
         self.cursor.execute(f"CREATE TABLE {s.SQLITE_NEIGHBOURS_TABLE} (test_id INTEGER, matches TEXT);")
         self.connection.commit()
 
     def process(self):
-        self._populate_required_data()
+        self._populate_pre_requisite_data()
         self._prepare_output_database_table()
 
         LOGGER.info('Starting multi processing threads!')
@@ -87,7 +88,7 @@ class PrePredictionData:
         wait_for_multiprocessing_threads(threads)
 
         # Creating index on the SQLite table
-        self.cursor.execute(f"CREATE UNIQUE INDEX id_index ON {s.SQLITE_NEIGHBOURS_TABLE} (test_id);")
+        self.cursor.execute(f"CREATE UNIQUE INDEX neighbours_id_index ON {s.SQLITE_NEIGHBOURS_TABLE} (test_id);")
         self.connection.commit()
 
         self.cursor.execute(f"SELECT COUNT(*) FROM {s.SQLITE_NEIGHBOURS_TABLE} LIMIT 1")

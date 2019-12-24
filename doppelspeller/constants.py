@@ -17,6 +17,11 @@ COLUMN_TRUTH_SEQUENCES = 'truth_sequences'
 COLUMN_TRUTH_SEQUENCES_MIN_HASH = 'truth_sequences_min_hash'
 COLUMN_TRUTH_NUMBER_OF_CHARACTERS = 'truth_number_of_characters'
 
+COLUMN_TRUTH_TH_WORD_LENGTH = 'truth_{}th_word_length'
+COLUMN_TRUTH_TH_WORD_PROBABILITY = 'truth_{}th_word_probability'
+COLUMN_TRUTH_TH_WORD_PROBABILITY_RANK = 'truth_{}th_word_probability_rank'
+COLUMN_TRUTH_TH_WORD_BEST_MATCH_SCORE = 'truth_{}th_word_best_match_score'
+
 COLUMN_TEST_INDEX = 'test_index'
 COLUMN_EXACT = 'exact'
 COLUMN_TRAIN_KIND = 'kind'
