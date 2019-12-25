@@ -18,8 +18,6 @@ LSH_FOREST, GROUND_TRUTH, CONNECTION, CURSOR = None, None, None, None
 
 class PrePredictionData:
     def __init__(self, number_of_workers=get_number_of_cpu_workers()):
-        if number_of_workers < 1:
-            number_of_workers = 1
         self.number_of_workers = number_of_workers
 
     def _populate_pre_requisite_data(self):
@@ -79,13 +77,18 @@ class PrePredictionData:
         self._populate_pre_requisite_data()
         self._prepare_output_database_table()
 
-        LOGGER.info('Starting multi processing threads!')
-        executor = ProcessPoolExecutor(max_workers=self.number_of_workers)
-        threads = [
-            executor.submit(self._save_nearest_matches, index, row[c.COLUMN_SEQUENCES])
-            for index, row in self.test_data.iterrows()
-        ]
-        wait_for_multiprocessing_threads(threads)
+        if self.number_of_workers == 1:
+            LOGGER.warning('Starting single threaded process. Use multi core machine to speed this up!')
+            _ = [self._save_nearest_matches(index, row[c.COLUMN_SEQUENCES])
+                 for index, row in self.test_data.iterrows()]
+        else:
+            LOGGER.info('Starting multi processing threads!')
+            executor = ProcessPoolExecutor(max_workers=self.number_of_workers)
+            threads = [
+                executor.submit(self._save_nearest_matches, index, row[c.COLUMN_SEQUENCES])
+                for index, row in self.test_data.iterrows()
+            ]
+            wait_for_multiprocessing_threads(threads)
 
         # Creating index on the SQLite table
         self.cursor.execute(f"CREATE UNIQUE INDEX neighbours_id_index ON {s.SQLITE_NEIGHBOURS_TABLE} (test_id);")

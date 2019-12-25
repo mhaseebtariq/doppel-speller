@@ -345,21 +345,29 @@ def generate_train_and_evaluation_data_sets():
 
     LOGGER.info('Constructing features!')
 
-    executor = ProcessPoolExecutor(max_workers=get_number_of_cpu_workers())
     number_of_rows = len(training_rows_final)
-    threads = [
-        executor.submit(construct_features, kind, title, truth_title, target, compress=True)
-        for kind, title, truth_title, target in training_rows_final
-    ]
-    del training_rows_final
-    wait_for_multiprocessing_threads(threads)
-
     features = np.zeros((number_of_rows,), dtype=s.FEATURES_TYPES)
     features[:] = np.nan
 
-    for index, thread in enumerate(threads):
-        features[index] = pickle.loads(zlib.decompress(thread.result()))
-    del threads
+    available_workers = get_number_of_cpu_workers()
+    if available_workers == 1:
+        LOGGER.warning('Starting single threaded process. Use multi core machine to speed this up!')
+        for index, (kind, title, truth_title, target) in enumerate(training_rows_final):
+            features[index] = pickle.loads(
+                zlib.decompress(construct_features(kind, title, truth_title, target, compress=True)))
+    else:
+        LOGGER.info('Starting multi processing threads!')
+        executor = ProcessPoolExecutor(max_workers=get_number_of_cpu_workers())
+        threads = [
+            executor.submit(construct_features, kind, title, truth_title, target, compress=True)
+            for kind, title, truth_title, target in training_rows_final
+        ]
+        del training_rows_final
+        wait_for_multiprocessing_threads(threads)
+
+        for index, thread in enumerate(threads):
+            features[index] = pickle.loads(zlib.decompress(thread.result()))
+        del threads
 
     evaluation_indexes = get_evaluation_indexes(features)
 

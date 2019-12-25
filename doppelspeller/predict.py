@@ -25,8 +25,6 @@ LOGGER = logging.getLogger(__name__)
 
 class Prediction:
     def __init__(self, number_of_workers=get_number_of_cpu_workers()):
-        if number_of_workers < 1:
-            number_of_workers = 1
         self.number_of_workers = number_of_workers
         self.already_populated_required_data = False
         self.matched_so_far = []
@@ -184,13 +182,20 @@ class Prediction:
     def _find_matches_using_model(self):
         LOGGER.info('Finding matches using the model!')
 
-        executor = ProcessPoolExecutor(max_workers=self.number_of_workers)
         remaining = self.test_data.loc[~self.test_data.index.isin(self.matched_so_far), :]
-        threads = [
-            executor.submit(self._generate_single_prediction, index, row[c.COLUMN_TRANSFORMED_TITLE])
-            for index, row in remaining.iterrows()
-        ]
-        wait_for_multiprocessing_threads(threads)
+
+        if self.number_of_workers == 1:
+            LOGGER.warning('Starting single threaded process. Use multi core machine to speed this up!')
+            _ = [self._generate_single_prediction(index, row[c.COLUMN_TRANSFORMED_TITLE])
+                 for index, row in remaining.iterrows()]
+        else:
+            LOGGER.info('Starting multi processing threads!')
+            executor = ProcessPoolExecutor(max_workers=self.number_of_workers)
+            threads = [
+                executor.submit(self._generate_single_prediction, index, row[c.COLUMN_TRANSFORMED_TITLE])
+                for index, row in remaining.iterrows()
+            ]
+            wait_for_multiprocessing_threads(threads)
 
     def _update_matched_so_far(self):
         so_far = pd.read_sql(
