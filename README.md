@@ -8,7 +8,7 @@ using a combination of Machine Learning and NLP techniques.<br/><br/>
 **Pre-requisite**: Install [Docker](https://docs.docker.com/install/) (tested on the v3.7 engine).
 * Setup an environment variable `$PROJECT_DATA_PATH` (open [settings.py](./doppelspeller/settings.py) to see how it is used!)
     - Defaults to [data/](./data/)
-* Copy all the files from [example_dataset/*](./example_dataset/) to `$PROJECT_DATA_PATH`
+* Copy (and the uncompress) all the files from [example_dataset/*](./example_dataset/) to `$PROJECT_DATA_PATH`
 * Check [cli.py](./doppelspeller/cli.py) and [Makefile](./Makefile) for cli definitions
 * `make --always-make build`
 * `make update-docker` - to update the project on the Docker container
