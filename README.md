@@ -61,7 +61,7 @@ Alias of `extensive_search_single_title` in [cli.py](./doppelspeller/cli.py)
 * Predicts the best match using the `OneVsRestClassifier` for the entire (not just the nearest matches) "truth" database
 
 ## TODO
-* More details on README
+* Extend README to include more details/explanation of the solution
 * Document classes/methods in the code
 * Write unit tests
 * Refactor code to be more SOLID
