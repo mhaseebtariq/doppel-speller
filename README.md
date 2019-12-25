@@ -46,3 +46,6 @@ Alias of `prepare_predictions_data` in [cli.py](./doppelspeller/cli.py)
 #### `make generate-predictions`
 Alias of `generate_predictions` in [cli.py](./doppelspeller/cli.py)
 * `true_positives, true_negatives, false_positives, false_negatives = (5872, 3845, 128, 155)`
+
+#### `make extensive-search-single-title`
+Alias of `extensive_search_single_title` in [cli.py](./doppelspeller/cli.py)
