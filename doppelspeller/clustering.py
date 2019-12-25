@@ -17,7 +17,7 @@ def generate_lsh_forest(ground_truth):
 
     for count, (title_id, sequences) in enumerate(zip(ground_truth.loc[:, c.COLUMN_TITLE_ID],
                                                       ground_truth.loc[:, c.COLUMN_SEQUENCES])):
-        if not (count % 50000):
+        if not (count % 10000):
             LOGGER.info(f'Processed {count} out of {number_of_rows_ground_truth}!')
 
         min_hash = MinHash(num_perm=s.NUMBER_OF_PERMUTATIONS)

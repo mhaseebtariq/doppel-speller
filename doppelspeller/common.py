@@ -142,7 +142,7 @@ def wait_for_multiprocessing_threads(threads):
         time.sleep(10)
         LOGGER.info(f'Processed {done_threads_count} out of {all_threads_count}...')
 
-        exception_threads = [x for x in done_threads if x.exception()]
+        exception_threads = [x for x in threads if x.exception()]
         if exception_threads:
             for thread in threads:
                 thread.cancel()

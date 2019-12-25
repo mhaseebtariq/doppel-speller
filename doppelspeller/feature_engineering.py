@@ -189,11 +189,9 @@ def generate_misspelled_name(word):
 def generate_dummy_train_data():
     LOGGER.info('Generating dummy train data!')
 
-    ground_truth = get_ground_truth()
-
     # Filtering short titles
-    generated_training_data = ground_truth.loc[
-        ground_truth[c.COLUMN_TRANSFORMED_TITLE].str.len() > 9, :].copy(deep=True)
+    generated_training_data = GROUND_TRUTH.loc[
+        GROUND_TRUTH[c.COLUMN_TRANSFORMED_TITLE].str.len() > 9, :].copy(deep=True)
 
     generated_training_data.loc[:, c.COLUMN_GENERATED_MISSPELLED_TITLE] = \
         generated_training_data.loc[:, c.COLUMN_TRANSFORMED_TITLE].apply(
@@ -215,9 +213,12 @@ def populate_pre_requisite_data():
     WORDS_COUNTER = get_ground_truth_words_counter(GROUND_TRUTH)
     NUMBER_OF_TITLES = len(GROUND_TRUTH)
 
+    return GROUND_TRUTH, WORDS_COUNTER, NUMBER_OF_TITLES
+
 
 def prepare_training_input_data():
     populate_pre_requisite_data()
+    generate_dummy_train_data()
 
     with open(s.SIMILAR_TITLES_FILE, 'rb') as file_object:
         training_data_input = pickle.load(file_object)
@@ -381,8 +382,8 @@ def generate_train_and_evaluation_data_sets():
     evaluation = features[evaluation_indexes]
     train = features[~evaluation_indexes]
 
-    train[c.COLUMN_TRAIN_KIND] = np.nan
-    evaluation[c.COLUMN_TRAIN_KIND] = np.nan
+    train[c.COLUMN_TRAIN_KIND] = 0
+    evaluation[c.COLUMN_TRAIN_KIND] = 0
 
     train_target = np.copy(train[c.COLUMN_TARGET])
     evaluation_target = np.copy(evaluation[c.COLUMN_TARGET])

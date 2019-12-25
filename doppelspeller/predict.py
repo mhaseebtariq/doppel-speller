@@ -13,7 +13,8 @@ import doppelspeller.settings as s
 import doppelspeller.constants as c
 from doppelspeller.common import (get_ground_truth, get_test_data, wait_for_multiprocessing_threads, transform_title,
                                   get_number_of_cpu_workers)
-from doppelspeller.feature_engineering import construct_features, get_ground_truth_words_counter
+from doppelspeller.feature_engineering import (construct_features, get_ground_truth_words_counter,
+                                               populate_pre_requisite_data)
 
 
 LOGGER = logging.getLogger(__name__)
@@ -40,6 +41,8 @@ class Prediction:
         LOGGER.info('Reading LSH forest dump!')
         with open(s.LSH_FOREST_OUTPUT_FILE, 'rb') as fl:
             LSH_FOREST = pickle.load(fl)
+
+        GROUND_TRUTH, WORDS_COUNTER, _ = populate_pre_requisite_data()
 
         GROUND_TRUTH = get_ground_truth()
         GROUND_TRUTH.set_index(c.COLUMN_TITLE_ID, inplace=True)
@@ -101,13 +104,13 @@ class Prediction:
                 continue
 
             prediction_features = np.zeros((len(matches_nearest),), dtype=s.FEATURES_TYPES)
-            prediction_features[:] = np.nan
             matches = []
             for matrix_index, match_index in enumerate(matches_nearest):
-                match = GROUND_TRUTH_MAPPING[match_index]
+                match = GROUND_TRUTH_MAPPING[match_index][c.COLUMN_TRUTH_TITLE]
                 matches.append(match)
+
                 kind, title, truth_title, target = (
-                    np.nan, title_to_match, match, np.nan
+                    0, title_to_match, match, np.nan
                 )
                 prediction_features[matrix_index] = construct_features(kind, title, truth_title, target)
 
@@ -119,7 +122,7 @@ class Prediction:
             predictions = MODEL.predict(d_test)
 
             best_match_index = np.argmax(predictions)
-            best_match = matches[best_match_index][c.COLUMN_TRUTH_TITLE]
+            best_match = matches[best_match_index]
             best_match_id = matches_nearest[best_match_index]
             best_match_prediction = predictions[best_match_index]
 
