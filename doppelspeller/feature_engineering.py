@@ -357,7 +357,7 @@ def generate_train_and_evaluation_data_sets():
                 zlib.decompress(construct_features(kind, title, truth_title, target, compress=True)))
     else:
         LOGGER.info('Starting multi processing threads!')
-        executor = ProcessPoolExecutor(max_workers=get_number_of_cpu_workers())
+        executor = ProcessPoolExecutor(max_workers=available_workers)
         threads = [
             executor.submit(construct_features, kind, title, truth_title, target, compress=True)
             for kind, title, truth_title, target in training_rows_final
