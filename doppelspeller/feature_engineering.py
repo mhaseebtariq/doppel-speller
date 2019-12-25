@@ -167,9 +167,18 @@ def remove_space(x, length):
     return ''.join(list_x)
 
 
+def swap_word(x, length):
+    words = x.split(' ')
+    indexes = list(range(len(words)))
+    replace_index = random.choice(indexes)
+    to_replace_with_index = random.choice(indexes)
+    words[replace_index], words[to_replace_with_index] = words[to_replace_with_index], words[replace_index]
+    return ' '.join(words)
+
+
 def generate_misspelled_name(word):
     new_word = str(word)
-    functions = [random.choice([add_letter, remove_letter]), replace_letter,
+    functions = [random.choice([swap_word, add_letter, remove_letter]), replace_letter,
                  random.choice([add_space, remove_space])]
     functions_selected = random.sample(functions, random.randint(1, 2))
     for func in functions_selected:
@@ -181,12 +190,10 @@ def generate_dummy_train_data():
     LOGGER.info('Generating dummy train data!')
 
     ground_truth = get_ground_truth()
-    ground_truth.loc[:, c.COLUMN_NUMBER_OF_CHARACTERS] = ground_truth.loc[:, c.COLUMN_TRANSFORMED_TITLE].apply(
-        lambda x: len(x)
-    )
 
     # Filtering short titles
-    generated_training_data = ground_truth[ground_truth[c.COLUMN_NUMBER_OF_CHARACTERS] > 9].copy(deep=True)
+    generated_training_data = ground_truth.loc[
+        ground_truth[c.COLUMN_TRANSFORMED_TITLE].str.len() > 9, :].copy(deep=True)
 
     generated_training_data.loc[:, c.COLUMN_GENERATED_MISSPELLED_TITLE] = \
         generated_training_data.loc[:, c.COLUMN_TRANSFORMED_TITLE].apply(
