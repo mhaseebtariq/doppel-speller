@@ -2,6 +2,7 @@ import random
 import logging
 import math
 import sys
+import zlib
 import _pickle as pickle
 from concurrent.futures import ProcessPoolExecutor
 
@@ -17,7 +18,7 @@ from doppelspeller.common import (get_ground_truth_words_counter, get_train_data
 
 
 LOGGER = logging.getLogger(__name__)
-GROUND_TRUTH, WORDS_COUNTER, NUMBER_OF_TITLES, NUMBER_OF_TITLES = None, None, None, None
+GROUND_TRUTH, WORDS_COUNTER, NUMBER_OF_TITLES = None, None, None
 
 
 def prepare_data_for_features_generation():
@@ -201,7 +202,7 @@ def generate_dummy_train_data():
 
 
 def populate_pre_requisite_data():
-    global GROUND_TRUTH, WORDS_COUNTER, NUMBER_OF_TITLES, NUMBER_OF_TITLES
+    global GROUND_TRUTH, WORDS_COUNTER, NUMBER_OF_TITLES
 
     GROUND_TRUTH = get_ground_truth()
     WORDS_COUNTER = get_ground_truth_words_counter(GROUND_TRUTH)
@@ -279,7 +280,7 @@ def get_evaluation_indexes(features):
         set(list(evaluation_generated_index) + list(evaluation_negative_index) + list(evaluation_positive_index))))
 
 
-def construct_features(kind, title, truth_title, target, n=s.NUMBER_OF_WORDS_FEATURES):
+def construct_features(kind, title, truth_title, target, n=s.NUMBER_OF_WORDS_FEATURES, compress=False):
     feature_row = [kind]
 
     title_number_of_characters = len(title)
@@ -317,7 +318,7 @@ def construct_features(kind, title, truth_title, target, n=s.NUMBER_OF_WORDS_FEA
 
     reconstructed_score = fuzz.ratio(' '.join(constructed_title), ' '.join(truth_words))
 
-    return tuple(
+    result = tuple(
         feature_row +
         (word_lengths + extra_nans) +
         (tf_idf_s + extra_nans) +
@@ -325,6 +326,11 @@ def construct_features(kind, title, truth_title, target, n=s.NUMBER_OF_WORDS_FEA
         (best_scores + extra_nans) +
         [reconstructed_score, target]
     )
+
+    if compress:
+        return zlib.compress(pickle.dumps(result))
+
+    return result
 
 
 def generate_train_and_evaluation_data_sets():
@@ -342,7 +348,7 @@ def generate_train_and_evaluation_data_sets():
     executor = ProcessPoolExecutor(max_workers=get_number_of_cpu_workers())
     number_of_rows = len(training_rows_final)
     threads = [
-        executor.submit(construct_features, kind, title, truth_title, target)
+        executor.submit(construct_features, kind, title, truth_title, target, compress=True)
         for kind, title, truth_title, target in training_rows_final
     ]
     del training_rows_final
@@ -352,7 +358,8 @@ def generate_train_and_evaluation_data_sets():
     features[:] = np.nan
 
     for index, thread in enumerate(threads):
-        features[index] = thread.result()
+        features[index] = pickle.loads(zlib.decompress(thread.result()))
+    del threads
 
     evaluation_indexes = get_evaluation_indexes(features)
 
