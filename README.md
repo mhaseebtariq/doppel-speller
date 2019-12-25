@@ -19,7 +19,7 @@ using a combination of Machine Learning and NLP techniques.<br/><br/>
 * `make prepare-predictions-data`
 * `make generate-predictions`
 
-## CLI's Explanation
+## CLIs' Explanation
 #### `make generate-lsh-forest`
 Alias of `generate_lsh_forest` in [cli.py](./doppelspeller/cli.py)
 * Given the "truth" database (see `GROUND_TRUTH_FILE` in [settings.py](./doppelspeller/settings.py)):
