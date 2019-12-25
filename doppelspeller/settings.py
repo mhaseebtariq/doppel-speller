@@ -21,7 +21,7 @@ SIMILAR_TITLES_FILE = f'{PROJECT_DATA_PATH}/similar_{TRAIN_DATA_NEAREST_N}_title
 GENERATED_TRAINING_DATA_FILE = f'{PROJECT_DATA_PATH}/generated_training_data.dump'
 
 # Ground Truth input file settings
-GROUND_TRUTH_FILE = f'{PROJECT_DATA_PATH}/G.csv'
+GROUND_TRUTH_FILE = f'{PROJECT_DATA_PATH}/example_truth.csv'
 GROUND_TRUTH_FILE_DELIMITER = '|'
 GROUND_TRUTH_FILE_COLUMNS_MAPPING = {
     c.COLUMN_TITLE_ID: 'company_id',
@@ -29,7 +29,7 @@ GROUND_TRUTH_FILE_COLUMNS_MAPPING = {
 }
 
 # Train data input file settings
-TRAIN_FILE = f'{PROJECT_DATA_PATH}/STrain.csv'
+TRAIN_FILE = f'{PROJECT_DATA_PATH}/example_train.csv'
 TRAIN_FILE_DELIMITER = '|'
 TRAIN_FILE_COLUMNS_MAPPING = {
     c.COLUMN_TITLE_ID: 'company_id',
@@ -38,7 +38,7 @@ TRAIN_FILE_COLUMNS_MAPPING = {
 TRAIN_NOT_FOUND_VALUE = '-1'
 
 # TEST data input file settings
-TEST_FILE = f'{PROJECT_DATA_PATH}/STest.csv'
+TEST_FILE = f'{PROJECT_DATA_PATH}/example_test.csv'
 TEST_FILE_DELIMITER = '|'
 TEST_FILE_COLUMNS_MAPPING = {
     c.COLUMN_TITLE: 'name'
