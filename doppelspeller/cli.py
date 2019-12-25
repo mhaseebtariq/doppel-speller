@@ -92,7 +92,7 @@ def generate_predictions(**kwargs):
 
 
 @cli.command()
-@click.option('-t', '--title-to-search', 'title', default='Wilhelm tJosten Inc Söhne GmbH')
+@click.option('-t', '--title-to-search', 'title', default='U V GRpOUP PLC')
 @time_usage
 def extensive_search_single_title(**kwargs):
     """Extensive search single title!"""
