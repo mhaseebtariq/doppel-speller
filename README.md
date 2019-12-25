@@ -1,12 +1,12 @@
 # DoppelSpeller
 
-Finds the best match (in a pre-defined data source) for a misspelled title,
+Finds the best match (in a database of titles) for a misspelled title,
 using a combination of Machine Learning and NLP techniques.<br/><br/>
 ![Project description](./description.jpg)
 
 ## Setup
 **Pre-requisite**: Install [Docker](https://docs.docker.com/install/) (tested on the v3.7 engine).
-* Setup a environment variable `$PROJECT_DATA_PATH` (open [settings.py](./doppelspeller/settings.py) to see how it is used!)
+* Setup an environment variable `$PROJECT_DATA_PATH` (open [settings.py](./doppelspeller/settings.py) to see how it is used!)
     - Defaults to [data/](./data/)
 * Copy all the files from [example_dataset/*](./example_dataset/) to `$PROJECT_DATA_PATH`
 * Check [cli.py](./doppelspeller/cli.py) and [Makefile](./Makefile) for cli definitions
@@ -27,11 +27,10 @@ Alias of `generate_lsh_forest` in [cli.py](./doppelspeller/cli.py)
     - "Nearest", based on the Jaccard distance computed on ngrams (n=3) of the titles
 * The computation can definitely be improved by using a different distance metric, computed over high dimensional matrices
 
-#### `make generate-lsh-forest`
-Alias of `generate_lsh_forest` in [cli.py](./doppelspeller/cli.py)
-
 #### `make prepare-data-for-features-generations`
 Alias of `prepare_data_for_features_generations` in [cli.py](./doppelspeller/cli.py)
+* Prepares training data for a `OneVsRestClassifier`
+* Each "positive" get the nearest "n" matches that do not match
 
 #### `make generate-train-and-evaluation-data-sets`
 Alias of `generate_train_and_evaluation_data_sets` in [cli.py](./doppelspeller/cli.py)
@@ -55,3 +54,8 @@ false_negatives     155
 
 #### `make extensive-search-single-title`
 Alias of `extensive_search_single_title` in [cli.py](./doppelspeller/cli.py)
+
+## TODO
+* More details on README
+* Document classes/methods in the code
+* Write unit tests
