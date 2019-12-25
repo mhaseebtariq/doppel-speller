@@ -24,7 +24,7 @@ using a combination of Machine Learning and NLP techniques.<br/><br/>
 Alias of `generate_lsh_forest` in [cli.py](./doppelspeller/cli.py)
 * Given the "truth" database (see `GROUND_TRUTH_FILE` in [settings.py](./doppelspeller/settings.py)):
     - Generates a Locality-sensitive hashing (LSH) forest for fetching the nearest title matches
-    - "Nearest", based on the Jaccard distance computed on ngrams (n=3) of titles
+    - "Nearest", based on the Jaccard distance computed on ngrams (n=3) of the titles
 * The computation can definitely be improved by using a different distance metric, computed over high dimensional matrices
 
 #### `make generate-lsh-forest`
@@ -39,6 +39,7 @@ Alias of `generate_train_and_evaluation_data_sets` in [cli.py](./doppelspeller/c
 #### `make train-model`
 Alias of `train_model` in [cli.py](./doppelspeller/cli.py)
 * `train-auc:1	evaluation-auc:0.999882	train-custom-error:7	evaluation-custom-error:213`
+* See the definition of `custom_error` in [train.py](./doppelspeller/train.py)
 
 #### `make prepare-predictions-data`
 Alias of `prepare_predictions_data` in [cli.py](./doppelspeller/cli.py)
