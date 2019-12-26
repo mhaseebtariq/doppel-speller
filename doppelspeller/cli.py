@@ -54,7 +54,7 @@ def generate_lsh_forest(**kwargs):
 @time_usage
 def prepare_data_for_features_generation(**kwargs):
     """Prepare data for features generation!"""
-    from doppelspeller.feature_engineering import prepare_data_for_features_generation
+    from doppelspeller.feature_engineering_prepare import prepare_data_for_features_generation
 
     LOGGER.info('Preparing data for features generation!')
     return prepare_data_for_features_generation()
@@ -64,10 +64,12 @@ def prepare_data_for_features_generation(**kwargs):
 @time_usage
 def generate_train_and_evaluation_data_sets(**kwargs):
     """Generate train and evaluation data-sets!"""
-    from doppelspeller.feature_engineering import generate_train_and_evaluation_data_sets
+    from doppelspeller.feature_engineering import FeatureEngineering
 
     LOGGER.info('Generating train and evaluation data-sets!')
-    return generate_train_and_evaluation_data_sets()
+
+    features = FeatureEngineering()
+    return features.generate_train_and_evaluation_data_sets()
 
 
 @cli.command()
@@ -103,7 +105,7 @@ def generate_predictions(**kwargs):
 
 
 @cli.command()
-@click.option('-t', '--title-to-search', 'title', default='U V GRpOUP PLC')
+@click.option('-t', '--title-to-search', 'title')
 @time_usage
 def extensive_search_single_title(**kwargs):
     """Extensive search single title!"""
@@ -111,8 +113,12 @@ def extensive_search_single_title(**kwargs):
 
     LOGGER.info('Searching for the closest match!')
 
+    title_to_search = kwargs['title'].strip()
+    if not title_to_search:
+        raise Exception('Empty value provided for --title-to-search="" (direct call) or title="" (make call)')
+
     prediction = Prediction()
-    found = prediction.extensive_search_single_title(kwargs['title'])
+    found = prediction.extensive_search_single_title(title_to_search)
 
     LOGGER.info(f'Title: {kwargs["title"]}')
     LOGGER.info(f'Closest match: {found}')

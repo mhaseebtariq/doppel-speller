@@ -6,21 +6,20 @@ import numpy as np
 import xgboost as xgb
 
 import doppelspeller.settings as s
+from doppelspeller.common import get_number_of_cpu_workers
 
 
 LOGGER = logging.getLogger(__name__)
 
 
 def custom_error(predictions, train_or_evaluation):
-    threshold = 0.5
-
     actual_target = train_or_evaluation.get_label()
 
-    predictions_negative_indexes = (predictions < threshold).nonzero()[0]
-    predictions_positive_indexes = (predictions >= threshold).nonzero()[0]
+    predictions_negative_indexes = (predictions <= s.PREDICTION_PROBABILITY_THRESHOLD).nonzero()[0]
+    predictions_positive_indexes = (predictions > s.PREDICTION_PROBABILITY_THRESHOLD).nonzero()[0]
 
     false_negative_cost = sum(actual_target[predictions_negative_indexes])
-    false_positive_cost = sum(actual_target[predictions_positive_indexes] == 0) * 5
+    false_positive_cost = sum(actual_target[predictions_positive_indexes] == 0) * s.FALSE_POSITIVE_PENALTY_FACTOR
 
     cost = false_negative_cost + false_positive_cost
 
@@ -28,7 +27,7 @@ def custom_error(predictions, train_or_evaluation):
 
 
 def weighted_log_loss(predictions, train_data_object):
-    beta = 5
+    beta = s.FALSE_POSITIVE_PENALTY_FACTOR
     actual_target = train_data_object.get_label()
     gradient = predictions * (beta + actual_target - beta * actual_target) - actual_target
     hessian = predictions * (1 - predictions) * (beta + actual_target - beta * actual_target)
@@ -75,7 +74,7 @@ def train_model():
         'params': {
             'max_depth': 5,
             'eta': 0.1,
-            'nthread': 4,
+            'nthread': get_number_of_cpu_workers(),
             'min_child_weight': 1,
             'eval_metric': 'auc',
             'objective': 'reg:logistic',

@@ -2,24 +2,20 @@ import json
 import sqlite3
 import logging
 import _pickle as pickle
-from concurrent.futures import ProcessPoolExecutor
 
 import numpy as np
 
 import doppelspeller.settings as s
 import doppelspeller.constants as c
-from doppelspeller.common import (get_ground_truth, get_min_hash, get_test_data, wait_for_multiprocessing_threads,
-                                  get_number_of_cpu_workers)
+from doppelspeller.common import get_ground_truth, get_min_hash, get_test_data, run_in_multi_processing_mode
 
 
 LOGGER = logging.getLogger(__name__)
+
 LSH_FOREST, GROUND_TRUTH, CONNECTION, CURSOR = None, None, None, None
 
 
 class PrePredictionData:
-    def __init__(self, number_of_workers=get_number_of_cpu_workers()):
-        self.number_of_workers = number_of_workers
-
     def _populate_pre_requisite_data(self):
         global LSH_FOREST, GROUND_TRUTH, CONNECTION, CURSOR
 
@@ -77,18 +73,9 @@ class PrePredictionData:
         self._populate_pre_requisite_data()
         self._prepare_output_database_table()
 
-        if self.number_of_workers == 1:
-            LOGGER.warning('Starting single threaded process. Use multi core machine to speed this up!')
-            _ = [self._save_nearest_matches(index, row[c.COLUMN_SEQUENCES])
-                 for index, row in self.test_data.iterrows()]
-        else:
-            LOGGER.info('Starting multi processing threads!')
-            executor = ProcessPoolExecutor(max_workers=self.number_of_workers)
-            threads = [
-                executor.submit(self._save_nearest_matches, index, row[c.COLUMN_SEQUENCES])
-                for index, row in self.test_data.iterrows()
-            ]
-            wait_for_multiprocessing_threads(threads)
+        all_args_kwargs = [([test_index, sequences], {})
+                           for test_index, sequences in zip(self.test_data.index, self.test_data[c.COLUMN_SEQUENCES])]
+        _ = run_in_multi_processing_mode(self._save_nearest_matches, all_args_kwargs)
 
         # Creating index on the SQLite table
         self.cursor.execute(f"CREATE UNIQUE INDEX neighbours_id_index ON {s.SQLITE_NEIGHBOURS_TABLE} (test_id);")

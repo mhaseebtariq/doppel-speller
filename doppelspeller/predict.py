@@ -2,7 +2,6 @@ import json
 import sqlite3
 import logging
 import _pickle as pickle
-from concurrent.futures import ProcessPoolExecutor
 
 import pandas as pd
 import numpy as np
@@ -11,10 +10,8 @@ import xgboost as xgb
 
 import doppelspeller.settings as s
 import doppelspeller.constants as c
-from doppelspeller.common import (get_ground_truth, get_test_data, wait_for_multiprocessing_threads, transform_title,
-                                  get_number_of_cpu_workers)
-from doppelspeller.feature_engineering import (construct_features, get_ground_truth_words_counter,
-                                               populate_pre_requisite_data)
+from doppelspeller.common import get_test_data, run_in_multi_processing_mode, transform_title
+from doppelspeller.feature_engineering import FeatureEngineering
 
 
 LOGGER = logging.getLogger(__name__)
@@ -25,8 +22,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 class Prediction:
-    def __init__(self, number_of_workers=get_number_of_cpu_workers()):
-        self.number_of_workers = number_of_workers
+    def __init__(self):
         self.already_populated_required_data = False
         self.matched_so_far = []
 
@@ -42,9 +38,8 @@ class Prediction:
         with open(s.LSH_FOREST_OUTPUT_FILE, 'rb') as fl:
             LSH_FOREST = pickle.load(fl)
 
-        GROUND_TRUTH, WORDS_COUNTER, _ = populate_pre_requisite_data()
+        GROUND_TRUTH, WORDS_COUNTER, _ = FeatureEngineering.populate_required_data()
 
-        GROUND_TRUTH = get_ground_truth()
         GROUND_TRUTH.set_index(c.COLUMN_TITLE_ID, inplace=True)
         GROUND_TRUTH.sort_index(inplace=True)
         GROUND_TRUTH.loc[:, c.COLUMN_TITLE_ID] = GROUND_TRUTH.index
@@ -68,9 +63,6 @@ class Prediction:
 
         with open(s.MODEL_DUMP_FILE, 'rb') as fl:
             MODEL = pickle.load(fl)
-
-        WORDS_COUNTER = get_ground_truth_words_counter(GROUND_TRUTH)
-        NUMBER_OF_WORDS = len(WORDS_COUNTER)
 
         self.test_data = get_test_data()
 
@@ -110,9 +102,10 @@ class Prediction:
                 matches.append(match)
 
                 kind, title, truth_title, target = (
-                    0, title_to_match, match, np.nan
+                    s.DISABLE_TRAIN_KIND_VALUE, title_to_match, match, s.DISABLE_TARGET_VALUE
                 )
-                prediction_features[matrix_index] = construct_features(kind, title, truth_title, target)
+                prediction_features[matrix_index] = FeatureEngineering.construct_features(
+                    kind, title, truth_title, target)
 
             prediction_features_set = np.array(prediction_features.tolist(), dtype=np.float16)
             features_names = list(prediction_features.dtype.names)
@@ -129,7 +122,7 @@ class Prediction:
             if find_closest:
                 return best_match_id, best_match, best_match_prediction
             else:
-                if best_match_prediction > 0.5:
+                if best_match_prediction > s.PREDICTION_PROBABILITY_THRESHOLD:
                     Prediction._save_prediction(index, title_to_match, best_match, best_match_id, best_match_prediction)
                     break
 
@@ -141,11 +134,14 @@ class Prediction:
         self.test_data.loc[:, c.COLUMN_EXACT] = self.test_data.loc[:, c.COLUMN_TRANSFORMED_TITLE].apply(
             lambda x: GROUND_TRUTH_MAPPING_REVERSED.get(x, -2))
 
-        for index, row in self.test_data.loc[self.test_data[c.COLUMN_EXACT] != -2, :].iterrows():
-            title_to_match = row[c.COLUMN_TRANSFORMED_TITLE]
-            best_match_id = row[c.COLUMN_EXACT]
+        test_data_filtered = self.test_data.loc[self.test_data[c.COLUMN_EXACT] != -2, :]
+        for test_index, title_to_match, best_match_id in zip(
+            test_data_filtered.index,
+            test_data_filtered[c.COLUMN_TRANSFORMED_TITLE],
+            test_data_filtered[c.COLUMN_EXACT]
+        ):
             best_match = GROUND_TRUTH_MAPPING[best_match_id][c.COLUMN_TRUTH_TITLE]
-            self._save_prediction(index, title_to_match, best_match, best_match_id, 1.0)
+            self._save_prediction(test_index, title_to_match, best_match, best_match_id, 1.0)
 
     def _find_close_matches(self):
         LOGGER.info('Finding very close matches!')
@@ -153,12 +149,11 @@ class Prediction:
         remaining = self.test_data.loc[~self.test_data.index.isin(self.matched_so_far), :]
         remaining_count = len(remaining)
         count = 0
-        for index, row in remaining.iterrows():
+        for index, title_to_match in zip(remaining.index, remaining[c.COLUMN_TRANSFORMED_TITLE]):
             count += 1
             if not (count % 10000):
                 LOGGER.info(f'Processed {count} of {remaining_count}...')
 
-            title_to_match = row[c.COLUMN_TRANSFORMED_TITLE]
             best_match_ids = self._get_nearest_matches(index)
 
             if not best_match_ids:
@@ -186,19 +181,9 @@ class Prediction:
         LOGGER.info('Finding matches using the model!')
 
         remaining = self.test_data.loc[~self.test_data.index.isin(self.matched_so_far), :]
-
-        if self.number_of_workers == 1:
-            LOGGER.warning('Starting single threaded process. Use multi core machine to speed this up!')
-            _ = [self._generate_single_prediction(index, row[c.COLUMN_TRANSFORMED_TITLE])
-                 for index, row in remaining.iterrows()]
-        else:
-            LOGGER.info('Starting multi processing threads!')
-            executor = ProcessPoolExecutor(max_workers=self.number_of_workers)
-            threads = [
-                executor.submit(self._generate_single_prediction, index, row[c.COLUMN_TRANSFORMED_TITLE])
-                for index, row in remaining.iterrows()
-            ]
-            wait_for_multiprocessing_threads(threads)
+        all_args_kwargs = [([index, title_to_match], {})
+                           for index, title_to_match in zip(remaining.index, remaining[c.COLUMN_TRANSFORMED_TITLE])]
+        _ = run_in_multi_processing_mode(self._generate_single_prediction, all_args_kwargs)
 
     def _update_matched_so_far(self):
         so_far = pd.read_sql(

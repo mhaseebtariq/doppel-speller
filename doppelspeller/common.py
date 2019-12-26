@@ -3,6 +3,7 @@ import time
 import logging
 import math
 from collections import Counter
+from concurrent.futures import ProcessPoolExecutor
 
 import psutil
 import unicodedata
@@ -17,16 +18,6 @@ LOGGER = logging.getLogger(__name__)
 
 SUBSTITUTE_REGEX = re.compile(r'[\s\-]+')
 KEEP_REGEX = re.compile(r'[a-zA-Z0-9\s]')
-
-
-def get_number_of_cpu_workers():
-    count = psutil.cpu_count(logical=False) - 1
-    if count == 0:
-        LOGGER.warning(
-            'Running the multiprocessing code with max_workers=1 because the machine is single core. '
-            'This can slow things up!'
-        )
-    return count or 1
 
 
 def transform_title(title):
@@ -121,6 +112,9 @@ def get_sequences(words, n_grams):
 
 
 def tf_idf(word, words_counter, number_of_titles):
+    """
+    Term frequency–inverse document frequency
+    """
     tf = words_counter[word] / number_of_titles
     idf = math.log(number_of_titles / words_counter[word])
     return tf * idf
@@ -152,3 +146,32 @@ def wait_for_multiprocessing_threads(threads):
         done_threads_count = len(done_threads)
 
     LOGGER.info('Multi processing threads completed!')
+
+
+def get_number_of_cpu_workers():
+    count = psutil.cpu_count(logical=False) - 1
+    if count == 0:
+        LOGGER.warning(
+            'Running the multiprocessing code with max_workers=1 because the machine is single core. '
+            'This can slow things up!'
+        )
+    return count or 1
+
+
+def run_in_multi_processing_mode(func, all_args_kwargs):
+    number_of_workers = get_number_of_cpu_workers()
+
+    if number_of_workers == 1:
+        LOGGER.warning('Starting single threaded process. Use multi core machine to speed this up!')
+        result = [func(*args, **kwargs) for args, kwargs in all_args_kwargs]
+    else:
+        LOGGER.info('Starting multi processing threads!')
+        executor = ProcessPoolExecutor(max_workers=number_of_workers)
+        threads = [executor.submit(func, *args, **kwargs) for args, kwargs in all_args_kwargs]
+
+        wait_for_multiprocessing_threads(threads)
+
+        result = [thread.result() for thread in threads]
+        del threads
+
+    return result

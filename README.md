@@ -8,16 +8,19 @@ using a combination of Machine Learning and NLP techniques.<br/><br/>
 * **Pre-requisites**:
     - Install [Docker](https://docs.docker.com/install/) (tested on engine v3.7)
     - Install `make`:
-        - Windows: Install [Cygwin](https://www.cygwin.com/setup-x86_64.exe) - While on the screen that lets you select packages to install, find `make` and select it!
+        - Windows: Install [Cygwin](https://www.cygwin.com/setup-x86_64.exe) [while on the screen that lets you select packages to install, find `make` and select it]
         - Debian: `apt-get install build-essential`
         - RHEL: `yum install make`
         - macOS: Xcode `xcode-select --install` | or using Homebrew `brew install make`
 * Check [cli.py](./doppelspeller/cli.py) and [Makefile](./Makefile) for cli definitions
 * `make --always-make build` - to build and prepare the Docket container for running the project
-* `make update-docker` - to update the project on the Docker container
+* `make update-docker` - to update the project setup on the Docker container
 * `make stage-example-data-set` - to copy the "example" data set files to the Docker container
 
-## Main CLIs (run in order)
+## Explanation
+
+Run the following cli's in order:
+
 #### `make generate-lsh-forest`
 Alias of `generate_lsh_forest` in [cli.py](./doppelspeller/cli.py)
 * Given the "truth" database (see `GROUND_TRUTH_FILE` in [settings.py](./doppelspeller/settings.py)):
@@ -25,7 +28,7 @@ Alias of `generate_lsh_forest` in [cli.py](./doppelspeller/cli.py)
     - "Nearest", based on the Jaccard distance computed on ngrams (n=3) of the titles
 * The computation can definitely be improved by using a different distance metric, computed over high dimensional (character <-> numeric encoded) matrices
 
-#### `make prepare-data-for-features-generations`
+#### `make prepare-data-for-features-generation`
 Alias of `prepare_data_for_features_generations` in [cli.py](./doppelspeller/cli.py)
 * Prepares training data for a `OneVsRestClassifier`
 * Each "positive" match is trained along with the nearest "n" matches that do not match with the title
@@ -36,9 +39,9 @@ Alias of `generate_train_and_evaluation_data_sets` in [cli.py](./doppelspeller/c
 
 #### `make train-model`
 Alias of `train_model` in [cli.py](./doppelspeller/cli.py)
-* XGBoost training output: `train-auc:1	evaluation-auc:0.999882	train-custom-error:7	evaluation-custom-error:213`
+* XGBoost training output: `train-auc:1	evaluation-auc:0.999893	train-custom-error:5	evaluation-custom-error:178`
 * See the definition of `custom_error` in [train.py](./doppelspeller/train.py)
-    - Also see the custom objective function `weighted_log_loss`
+    - Also, the custom objective function `weighted_log_loss`
 
 #### `make prepare-predictions-data`
 Alias of `prepare_predictions_data` in [cli.py](./doppelspeller/cli.py)
@@ -46,6 +49,10 @@ Alias of `prepare_predictions_data` in [cli.py](./doppelspeller/cli.py)
 
 #### `make generate-predictions`
 Alias of `generate_predictions` in [cli.py](./doppelspeller/cli.py)
+* The algorithm first looks for exact matches
+* Then the nearest "n" matches per (remaining) title are found using the LSH forest
+* Next, the nearest matches are "fuzzy" matched with each title
+* Finally, the trained model is used to match the remaining titles
 * Test set predictions accuracy:
 ```
 True Positives      5872
@@ -54,9 +61,13 @@ False Positives     128
 False Negatives     155
 ```
 
-#### `make extensive-search-single-title`
+#### `make extensive-search-single-title title='UV GrP PLC'`
 Alias of `extensive_search_single_title` in [cli.py](./doppelspeller/cli.py)
 * Predicts the best match using the `OneVsRestClassifier` for the entire (not just the nearest matches) "truth" database
+
+## NOTES
+* All the computationally expensive tasks run in multi-processing mode
+* Those tasks, can therefore, be easily refactored to be run on distributed computing clusters
 
 ## TODO
 * Extend README to include more details/explanation of the solution
