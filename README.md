@@ -6,9 +6,9 @@ using a combination of Machine Learning and NLP techniques.<br/><br/>
 
 ## Setup
 #### Pre-requisites:
-* Install [Docker](https://docs.docker.com/install/) (tested on the v3.7 engine).
+* Install [Docker](https://docs.docker.com/install/) (tested on engine v3.7)
 * Install `make`:
-    - Windows: Install [Cygwin][https://www.cygwin.com/setup-x86_64.exe] - While on the screen that lets you select packages to install, find `make` and select it!
+    - Windows: Install [Cygwin](https://www.cygwin.com/setup-x86_64.exe) - While on the screen that lets you select packages to install, find `make` and select it!
     - Debian: `apt-get install build-essential`
     - RHEL: `yum install make`
     - macOS: Xcode `xcode-select --install` | or using Homebrew `brew install make`
