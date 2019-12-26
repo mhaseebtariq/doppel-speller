@@ -13,7 +13,7 @@ using a combination of Machine Learning and NLP techniques.<br/><br/>
         - RHEL: `yum install make`
         - macOS: Xcode `xcode-select --install` | or using Homebrew `brew install make`
 * Check [cli.py](./doppelspeller/cli.py) and [Makefile](./Makefile) for cli definitions
-* `make --always-make build` - to build and prepare the Docket container for running the project
+* `make --always-make build` - to build and prepare the Docker container for running the project
 * `make update-docker` - to update the project setup on the Docker container
 * `make stage-example-data-set` - to copy the "example" data set files to the Docker container
 * `make inspect` - inspect the code for PEP-8 issues
