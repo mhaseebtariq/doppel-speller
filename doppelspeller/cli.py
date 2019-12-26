@@ -1,4 +1,5 @@
 import sys
+import os
 import logging
 
 import click
@@ -27,6 +28,16 @@ def cli(context, verbose):
         level = logging.DEBUG
 
     logging.basicConfig(stream=sys.stdout, level=level)
+
+
+@cli.command()
+def stage_example_data_set_on_docker_container(**kwargs):
+    """Makes the example data set files available on the Docker container!"""
+    cmd = (
+        "cp -r /doppelspeller/example_dataset/*.gz $PROJECT_DATA_PATH && "
+        "cd $PROJECT_DATA_PATH && /bin/gunzip -f -r *.gz"
+    )
+    return os.popen(cmd).read()
 
 
 @cli.command()

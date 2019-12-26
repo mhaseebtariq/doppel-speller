@@ -3,7 +3,6 @@ clean:
 	rm -r build/ dist/ .eggs/ .cache/ *.egg-info/ || echo '1'
 
 build:
-	make clean
 	docker-compose build
 	make update-docker
 
@@ -12,6 +11,9 @@ login:
 
 update-docker:
 	docker-compose up -d && docker exec -t doppelspeller /bin/sh /doppelspeller/docker-update.sh
+
+stage-example-data-set:
+	docker-compose up -d && docker exec -t doppelspeller doppel-speller -vv stage-example-data-set-on-docker-container
 
 generate-lsh-forest:
 	docker-compose up -d && docker exec -t doppelspeller doppel-speller -vv generate-lsh-forest
