@@ -63,7 +63,7 @@ False Positives     123
 False Negatives     137
 ```
 
-#### `make extensive-search-single-title title='UV GrP PLC'`
+#### `make extensive-search-single-title title='PRO teome plc SCIs'`
 Alias of `extensive_search_single_title` in [cli.py](./doppelspeller/cli.py)
 * Predicts the best match using the `OneVsRestClassifier` for the entire (not just the nearest matches) "truth" database
 
