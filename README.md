@@ -2,7 +2,7 @@
 
 Finds the best match (in a database of titles) for a misspelled title,
 using a combination of Machine Learning and NLP techniques.<br/><br/>
-![Project description](./description.jpg =485x)
+![Project description](./description.jpg)
 
 ## Setup
 * **Pre-requisites**:
