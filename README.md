@@ -16,6 +16,8 @@ using a combination of Machine Learning and NLP techniques.<br/><br/>
 * `make --always-make build` - to build and prepare the Docket container for running the project
 * `make update-docker` - to update the project setup on the Docker container
 * `make stage-example-data-set` - to copy the "example" data set files to the Docker container
+* `make inspect` - inspect the code for PEP-8 issues
+* `make test` - run the unit tests
 
 ## Explanation
 
@@ -53,12 +55,12 @@ Alias of `generate_predictions` in [cli.py](./doppelspeller/cli.py)
 * Then the nearest "n" matches per (remaining) title are found using the LSH forest
 * Next, the nearest matches are "fuzzy" matched with each title
 * Finally, the trained model is used to match the remaining titles
-* Test set predictions accuracy:
+* Test set predictions accuracy (run `make get-predictions-accuracy` to calculate the following):
 ```
-True Positives      5872
-True Negatives      3845
-False Positives     128
-False Negatives     155
+True Positives      5877
+True Negatives      3863
+False Positives     123
+False Negatives     137
 ```
 
 #### `make extensive-search-single-title title='UV GrP PLC'`
@@ -67,10 +69,10 @@ Alias of `extensive_search_single_title` in [cli.py](./doppelspeller/cli.py)
 
 ## NOTES
 * All the computationally expensive tasks run in multi-processing mode
-* Those tasks, can therefore, be easily refactored to be run on distributed computing clusters
+* Those tasks, can therefore, be easily refactored to run on distributed computing clusters
 
 ## TODO
 * Extend README to include more details/explanation of the solution
-* Document classes/methods in the code
-* Write unit tests
+* Document all the classes/methods in the code
+* Write more unit tests
 * Refactor code to be more SOLID

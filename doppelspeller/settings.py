@@ -39,6 +39,7 @@ TRAIN_NOT_FOUND_VALUE = '-1'
 
 # TEST data input file settings
 TEST_FILE = f'{PROJECT_DATA_PATH}/example_test.csv'
+TEST_WITH_ACTUAL_FILE = f'{PROJECT_DATA_PATH}/example_test_with_actuals.csv'
 TEST_FILE_DELIMITER = '|'
 TEST_FILE_COLUMNS_MAPPING = {
     c.COLUMN_TITLE: 'name'

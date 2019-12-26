@@ -123,3 +123,43 @@ def extensive_search_single_title(**kwargs):
     LOGGER.info(f'Title: {kwargs["title"]}')
     LOGGER.info(f'Closest match: {found}')
     return found
+
+
+@cli.command()
+@time_usage
+def get_predictions_accuracy(**kwargs):
+    """Print predictions accuracy!"""
+    import pandas as pd
+
+    import doppelspeller.constants as c
+    import doppelspeller.settings as s
+
+    title_id_actual = s.TRAIN_FILE_COLUMNS_MAPPING[c.COLUMN_TITLE_ID]
+    try:
+        actual = pd.read_csv(s.TEST_WITH_ACTUAL_FILE, sep=s.TEST_FILE_DELIMITER).to_dict()[title_id_actual]
+    except:  # noqa
+        raise Exception(f'Error reading {s.TEST_WITH_ACTUAL_FILE} (TEST_WITH_ACTUAL_FILE in settings.py)')
+    predictions = pd.read_csv(s.FINAL_OUTPUT_FILE, sep=s.TEST_FILE_DELIMITER).to_dict()[c.COLUMN_TITLE_ID]
+
+    true_positives, true_negatives, false_positives, false_negatives = 0, 0, 0, 0
+    for key, value in actual.items():
+        value_output = predictions[key]
+        if value == -1:
+            if value_output == -1:
+                true_negatives += 1
+            else:
+                false_negatives += 1
+        else:
+            if value_output == value:
+                true_positives += 1
+            else:
+                false_positives += 1
+
+    LOGGER.info(f"""\n
+    True Positives          {true_positives}
+    True Negatives          {true_negatives}
+    False Positives         {false_positives}
+    False Negatives         {false_negatives}
+    """)
+
+    return true_positives, true_negatives, false_positives, false_negatives

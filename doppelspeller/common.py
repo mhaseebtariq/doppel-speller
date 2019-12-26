@@ -16,17 +16,17 @@ import doppelspeller.settings as s
 
 LOGGER = logging.getLogger(__name__)
 
-SUBSTITUTE_REGEX = re.compile(r'[\s\-]+')
+SUBSTITUTE_REGEX = re.compile(r' +')
 KEEP_REGEX = re.compile(r'[a-zA-Z0-9\s]')
 
 
 def transform_title(title):
     # Remove accents
     text = unicodedata.normalize('NFD', title)
-    text = text.encode('ascii', 'ignore').decode('utf-8').lower()
-    # Extract only alphanumeric characters / convert to lower case
-    text = SUBSTITUTE_REGEX.sub(' ', text).strip()
+    text = text.encode('ascii', 'ignore').decode('utf-8').lower().replace('-', ' ')
     text = ''.join(KEEP_REGEX.findall(text))
+    # Extract only alphanumeric characters / convert to lower case
+    text = SUBSTITUTE_REGEX.sub(' ', text)
     if len(text) > 256:
         LOGGER.warning(
             'Titles greater than length 256 are not allowed. Trimming the title!\n'
@@ -103,7 +103,7 @@ def get_test_data():
 
 
 def get_ground_truth_words_counter(ground_truth):
-    words = [x for y in ground_truth.loc[:, c.COLUMN_WORDS] for x in y]
+    words = [x for y in ground_truth.loc[:, c.COLUMN_WORDS] for x in set(y)]
     return Counter(words)
 
 
