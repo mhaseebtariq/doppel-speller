@@ -78,7 +78,7 @@ FINAL_OUTPUT_FILE = f'{PROJECT_DATA_PATH}/final_output.csv'
 # Features settings
 NUMBER_OF_WORDS_FEATURES = 15
 FEATURES_TYPES = [
-    (c.COLUMN_TRAIN_KIND, np.dtype('u1')),
+    (c.COLUMN_TRAIN_KIND, np.dtype('u1')),  # NOT A FEATURE - only used for filtering
     (c.COLUMN_NUMBER_OF_CHARACTERS, np.dtype('u1')),
     (c.COLUMN_TRUTH_NUMBER_OF_CHARACTERS, np.dtype('u1')),
     (c.COLUMN_NUMBER_OF_WORDS, np.dtype('u1')),

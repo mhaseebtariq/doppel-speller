@@ -2,7 +2,10 @@
 
 Finds the best match (in a database of titles) for a misspelled title,
 using a combination of Machine Learning and NLP techniques.<br/><br/>
-![Project description](./description.jpg)
+![Project description](./description.jpg)<br/><br/>
+#### Challenges:
+* Matching search terms in a database of millions of "true" titles could be computationally expensive
+* Human beings can be really creative (even come up with new ways) to misspell words/titles
 
 ## Setup
 * **Pre-requisites**:
@@ -38,6 +41,7 @@ Alias of `prepare_data_for_features_generations` in [cli.py](./doppelspeller/cli
 #### `make generate-train-and-evaluation-data-sets`
 Alias of `generate_train_and_evaluation_data_sets` in [cli.py](./doppelspeller/cli.py)
 * Generates `train` and `evaluation` data sets for the `train-model` cli
+* Main features generation method: `construct_features` (in [feature_engineering.py](./doppelspeller/feature_engineering.py`))
 
 #### `make train-model`
 Alias of `train_model` in [cli.py](./doppelspeller/cli.py)

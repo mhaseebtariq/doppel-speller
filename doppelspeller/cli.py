@@ -5,7 +5,6 @@ import logging
 import click
 
 from doppelspeller import __version__, __build__
-from doppelspeller.common import get_ground_truth
 from doppelspeller.cli_utils import time_usage
 
 
@@ -45,6 +44,7 @@ def stage_example_data_set_on_docker_container(**kwargs):
 def generate_lsh_forest(**kwargs):
     """Generate the LSH forest for clustering the titles together!"""
     from doppelspeller.clustering import generate_lsh_forest
+    from doppelspeller.common import get_ground_truth
 
     LOGGER.info('Generating LSH forest!')
     return generate_lsh_forest(get_ground_truth())
