@@ -41,7 +41,7 @@ Alias of `prepare_data_for_features_generations` in [cli.py](./doppelspeller/cli
 #### `make generate-train-and-evaluation-data-sets`
 Alias of `generate_train_and_evaluation_data_sets` in [cli.py](./doppelspeller/cli.py)
 * Generates `train` and `evaluation` data sets for the `train-model` cli
-* Main features generation method: `construct_features` (in [feature_engineering.py](./doppelspeller/feature_engineering.py`))
+* Main features generation method: `construct_features` (in [feature_engineering.py](./doppelspeller/feature_engineering.py))
 
 #### `make train-model`
 Alias of `train_model` in [cli.py](./doppelspeller/cli.py)
