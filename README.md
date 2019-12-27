@@ -75,7 +75,7 @@ Alias of `extensive_search_single_title` in [cli.py](./doppelspeller/cli.py)
 * The "example" data set is auto-generated, therefore, it is actually not too hard to get a high accuracy
     - The solution produces similar accuracy on a data set with actual human errors as well
 * All the computationally expensive tasks run in multi-processing mode
-* Those tasks, can therefore, be easily refactored to run on distributed computing clusters
+    - Those tasks, can therefore, be easily refactored to run on distributed computing clusters
 
 ## TODO
 * Extend README to include more details/explanation of the solution
