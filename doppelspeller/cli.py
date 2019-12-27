@@ -86,7 +86,7 @@ def train_model(**kwargs):
 @time_usage
 def prepare_predictions_data(**kwargs):
     """Prepare the predictions data required for generating the predictions!"""
-    from doppelspeller.predict_preparation import PrePredictionData
+    from doppelspeller.predict_prepare import PrePredictionData
 
     LOGGER.info('Preparing the predictions data!')
     pre_prediction_data = PrePredictionData()
