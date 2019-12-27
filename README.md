@@ -5,7 +5,7 @@ using a combination of Machine Learning and NLP techniques.<br/><br/>
 ![Project description](./description.jpg)<br/><br/>
 #### Challenges:
 * Matching search terms in a database of millions of "true" titles (for example, company names) could be computationally expensive
-* Human beings can be really creative (even come up with new ways) to misspell words in a title
+* Human beings can be really creative, even come up with new ways, to misspell words in a title
 
 ## Setup
 * **Pre-requisites**:
