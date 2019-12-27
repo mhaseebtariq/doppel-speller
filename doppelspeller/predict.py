@@ -17,7 +17,7 @@ from doppelspeller.feature_engineering import FeatureEngineering
 LOGGER = logging.getLogger(__name__)
 
 # TODO: multiprocessing module can not pickle self.<attributes>, therefore, defining global variables!
-# Try to avoid declaring these variable, maybe use pathos?
+# Try to avoid declaring these variables, maybe use pathos?
 (CONNECTION, CURSOR, LSH_FOREST, GROUND_TRUTH,
  GROUND_TRUTH_MAPPING_REVERSED, GROUND_TRUTH_MAPPING, MODEL,
  WORDS_COUNTER, NUMBER_OF_WORDS) = (None, None, None, None, None, None, None, None, None)

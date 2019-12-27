@@ -13,7 +13,7 @@ from doppelspeller.common import get_ground_truth, get_min_hash, get_test_data, 
 LOGGER = logging.getLogger(__name__)
 
 # TODO: multiprocessing module can not pickle self.<attributes>, therefore, defining global variables!
-# Try to avoid declaring these variable, maybe use pathos?
+# Try to avoid declaring these variables, maybe use pathos?
 LSH_FOREST, GROUND_TRUTH, CONNECTION, CURSOR = None, None, None, None
 
 

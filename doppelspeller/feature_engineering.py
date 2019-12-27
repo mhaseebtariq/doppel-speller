@@ -18,7 +18,7 @@ from doppelspeller.common import (get_ground_truth_words_counter, get_train_data
 LOGGER = logging.getLogger(__name__)
 
 # TODO: multiprocessing module can not pickle self.<attributes>, therefore, defining global variables!
-# Try to avoid declaring these variable, maybe use pathos?
+# Try to avoid declaring these variables, maybe use pathos?
 GROUND_TRUTH, WORDS_COUNTER, NUMBER_OF_TITLES = None, None, None
 
 
