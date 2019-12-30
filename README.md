@@ -50,10 +50,10 @@ Alias of `generate_predictions` in [cli.py](./doppelspeller/cli.py)
 * Finally, the trained model is used to match the remaining titles
 * Test set predictions accuracy (run `make get-predictions-accuracy` to calculate the following):
 ```
-True Positives          5912
-True Negatives          3870
-False Positives         88
-False Negatives         130
+True Positives          5939
+True Negatives          3856
+False Positives         61
+False Negatives         144
 ```
 
 #### `make extensive-search-single-title title='PRO teome plc SCIs'`
