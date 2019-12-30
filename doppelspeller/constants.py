@@ -4,7 +4,7 @@ COLUMN_TITLE_ID = 'title_id'
 COLUMN_TITLE = 'title'
 COLUMN_TRANSFORMED_TITLE = 'transformed_title'
 COLUMN_NUMBER_OF_WORDS = 'number_of_words'
-COLUMN_SEQUENCES = 'sequences'
+COLUMN_N_GRAMS = 'n_grams'
 COLUMN_SEQUENCES_MIN_HASH = 'sequences_min_hash'
 COLUMN_NUMBER_OF_CHARACTERS = 'number_of_characters'
 
@@ -35,3 +35,6 @@ COLUMN_RECONSTRUCTED_SCORE = 'reconstructed_score'
 TRAINING_KIND_GENERATED = 1
 TRAINING_KIND_NEGATIVE = 2
 TRAINING_KIND_POSITIVE = 3
+
+DATA_TYPE_TRAIN = 'train'
+DATA_TYPE_TEST = 'test'

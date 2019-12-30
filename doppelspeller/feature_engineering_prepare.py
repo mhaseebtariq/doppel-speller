@@ -29,7 +29,7 @@ def prepare_data_for_features_generation():
 
     train_data = get_train_data()
 
-    train_data.loc[:, c.COLUMN_SEQUENCES_MIN_HASH] = train_data.loc[:, c.COLUMN_SEQUENCES].apply(
+    train_data.loc[:, c.COLUMN_SEQUENCES_MIN_HASH] = train_data.loc[:, c.COLUMN_N_GRAMS].apply(
         lambda x: get_min_hash(x, s.NUMBER_OF_PERMUTATIONS))
 
     train_length = len(train_data)

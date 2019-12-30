@@ -53,7 +53,7 @@ class PrePredictionData:
         nearest_neighbours = GROUND_TRUTH.loc[GROUND_TRUTH.index.isin(nearest_neighbours), :]
         distance_indexes = np.argsort(list(
             map(lambda x: -len(x.intersection(test_sequences)) / len(x.union(test_sequences)),
-                nearest_neighbours[c.COLUMN_SEQUENCES].values))
+                nearest_neighbours[c.COLUMN_N_GRAMS].values))
         )[:s.TOP_N_RESULTS_IN_FOREST]
 
         matches = [x for x in nearest_neighbours[c.COLUMN_TITLE_ID].values[distance_indexes]]
@@ -76,7 +76,7 @@ class PrePredictionData:
         self._prepare_output_database_table()
 
         all_args_kwargs = [([test_index, sequences], {})
-                           for test_index, sequences in zip(self.test_data.index, self.test_data[c.COLUMN_SEQUENCES])]
+                           for test_index, sequences in zip(self.test_data.index, self.test_data[c.COLUMN_N_GRAMS])]
         _ = run_in_multi_processing_mode(self._save_nearest_matches, all_args_kwargs)
 
         # Creating index on the SQLite table

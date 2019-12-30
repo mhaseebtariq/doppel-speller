@@ -7,7 +7,7 @@ import doppelspeller.constants as c
 
 PROJECT_DATA_PATH = os.environ.get('PROJECT_DATA_PATH')
 if not PROJECT_DATA_PATH:
-    PROJECT_DATA_PATH = os.path.abspath('./data/')
+    PROJECT_DATA_PATH = os.path.abspath('../data/')
     warnings.warn(f'\n\nEnvironment variable PROJECT_DATA_PATH not set! Using {PROJECT_DATA_PATH} as default!\n')
 PROJECT_DATA_PATH = os.path.abspath(PROJECT_DATA_PATH)
 
@@ -72,15 +72,18 @@ SQLITE_FEATURES_INPUT_TABLE = 'features_input'
 FETCH_NEAREST_N_IN_FOREST = 200
 TOP_N_RESULTS_IN_FOREST = 100
 
+TOP_N_RESULTS_TO_FIND = 10
+
 # Predictions settings
 FINAL_OUTPUT_FILE = f'{PROJECT_DATA_PATH}/final_output.csv'
 
 # Features settings
 NUMBER_OF_WORDS_FEATURES = 15
+NUMBER_OF_CHARACTERS_DATA_TYPE = np.dtype('u1')
 FEATURES_TYPES = [
     (c.COLUMN_TRAIN_KIND, np.dtype('u1')),  # NOT A FEATURE - only used for filtering
-    (c.COLUMN_NUMBER_OF_CHARACTERS, np.dtype('u1')),
-    (c.COLUMN_TRUTH_NUMBER_OF_CHARACTERS, np.dtype('u1')),
+    (c.COLUMN_NUMBER_OF_CHARACTERS, NUMBER_OF_CHARACTERS_DATA_TYPE),
+    (c.COLUMN_TRUTH_NUMBER_OF_CHARACTERS, NUMBER_OF_CHARACTERS_DATA_TYPE),
     (c.COLUMN_NUMBER_OF_WORDS, np.dtype('u1')),
     (c.COLUMN_TRUTH_NUMBER_OF_WORDS, np.dtype('u1')),
     (c.COLUMN_DISTANCE, np.dtype('u1')),

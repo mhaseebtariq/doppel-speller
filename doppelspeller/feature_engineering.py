@@ -11,7 +11,7 @@ from fuzzywuzzy import fuzz
 import doppelspeller.settings as s
 import doppelspeller.constants as c
 from doppelspeller.feature_engineering_prepare import generate_misspelled_name
-from doppelspeller.common import (get_ground_truth_words_counter, get_train_data, get_ground_truth, tf_idf,
+from doppelspeller.common import (get_words_counter, get_train_data, get_ground_truth, idf,
                                   run_in_multi_processing_mode)
 
 
@@ -28,7 +28,7 @@ class FeatureEngineering:
         global GROUND_TRUTH, WORDS_COUNTER, NUMBER_OF_TITLES
 
         GROUND_TRUTH = get_ground_truth()
-        WORDS_COUNTER = get_ground_truth_words_counter(GROUND_TRUTH)
+        WORDS_COUNTER = get_words_counter(GROUND_TRUTH)
         NUMBER_OF_TITLES = len(GROUND_TRUTH)
 
         return GROUND_TRUTH, WORDS_COUNTER, NUMBER_OF_TITLES
@@ -133,7 +133,7 @@ class FeatureEngineering:
         :param title: Title to match
         :param truth_title: Title to match against
         :param target: True or False - whether the "title" and "title_truth" are a match or not
-        :param n: NUMBER_OF_WORDS_FEATURES to consider while defining tf_idf related features (defined in settings.py)
+        :param n: NUMBER_OF_WORDS_FEATURES to consider while defining idf related features (defined in settings.py)
         :param compress: Whether to compress the output tuple
         :return: A tuple corresponding to FEATURES_TYPES (settings.py)
         """
@@ -158,7 +158,7 @@ class FeatureEngineering:
         truth_words = truth_words[:n]
 
         word_lengths = [len(x) for x in truth_words]
-        tf_idf_s = [tf_idf(x, WORDS_COUNTER, NUMBER_OF_TITLES) for x in truth_words]
+        tf_idf_s = [idf(x, WORDS_COUNTER, NUMBER_OF_TITLES) for x in truth_words]
         tf_idf_s_ranks = [int(x) for x in np.argsort(tf_idf_s).argsort() + 1]
 
         best_scores = []

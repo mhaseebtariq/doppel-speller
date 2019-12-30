@@ -16,7 +16,7 @@ def generate_lsh_forest(ground_truth):
     number_of_rows_ground_truth = ground_truth.shape[0]
 
     for count, (title_id, sequences) in enumerate(zip(ground_truth.loc[:, c.COLUMN_TITLE_ID],
-                                                      ground_truth.loc[:, c.COLUMN_SEQUENCES])):
+                                                      ground_truth.loc[:, c.COLUMN_N_GRAMS])):
         if not (count % 10000):
             LOGGER.info(f'Processed {count} out of {number_of_rows_ground_truth}!')
 
