@@ -7,7 +7,7 @@ import doppelspeller.constants as c
 
 PROJECT_DATA_PATH = os.environ.get('PROJECT_DATA_PATH')
 if not PROJECT_DATA_PATH:
-    PROJECT_DATA_PATH = os.path.abspath('../data/')
+    PROJECT_DATA_PATH = os.path.abspath('./data/')
     warnings.warn(f'\n\nEnvironment variable PROJECT_DATA_PATH not set! Using {PROJECT_DATA_PATH} as default!\n')
 PROJECT_DATA_PATH = os.path.abspath(PROJECT_DATA_PATH)
 

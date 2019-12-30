@@ -24,14 +24,14 @@ LOGGER = logging.getLogger(__name__)
 
 # @njit(fastmath=True, parallel=True)
 def get_top_matches(top_n, number_of_truth_titles, max_intersection_possible,
-                    matrix_non_zero_columns, matrix_truth_non_zero_columns, sums_matrix_truth):
+                    non_zero_columns_for_the_row, matrix_truth_non_zero_columns, sums_matrix_truth):
     """
     TODO: Set the proper function signatures for better speed!
     """
 
     scores = np.zeros((number_of_truth_titles,), dtype=np.float32)
-    for matrix_non_zero_column in matrix_non_zero_columns:
-        columns, values = matrix_truth_non_zero_columns[matrix_non_zero_column]
+    for non_zero_column in non_zero_columns_for_the_row:
+        columns, values = matrix_truth_non_zero_columns[non_zero_column]
         scores[columns] += values
 
     delta = np.copy(scores)
@@ -99,21 +99,30 @@ class Encoding:
     def _find_matches(self):
         np.seterr(divide='ignore', invalid='ignore')
 
+        # Delete all unwanted variables
+        del self.data
+        del self.truth_data
+        del self.n_grams_counter
+        del self.n_grams_counter_truth
+        del self.n_grams_encoding
+        del self.matrix
+        del self.matrix_truth
+
         iteration_start = time.time()
-        total = len(self.data)
-        for index in self.data.index:
-            if not (index + 1) % 1000:
-                LOGGER.info(f'Processed: {index + 1} of {total}| '
+        total = len(self.matrix_non_zero_columns)
+        for count, non_zero_columns_for_the_row in enumerate(self.matrix_non_zero_columns):
+            if not (count + 1) % 1000:
+                LOGGER.info(f'Processed: {count + 1} of {total}| '
                             f'Iteration time: {round(time.time() - iteration_start, 2)}')
                 iteration_start = time.time()
 
-            max_intersection_possible = sum([self._get_idf_given_index(r) for r in self.matrix_non_zero_columns[index]])
+            max_intersection_possible = sum([self._get_idf_given_index(r) for r in non_zero_columns_for_the_row])
             top_matches = get_top_matches(
                 s.TOP_N_RESULTS_TO_FIND, self.number_of_truth_titles, max_intersection_possible,
-                self.matrix_non_zero_columns[index], self.matrix_truth_non_zero_columns,
+                non_zero_columns_for_the_row, self.matrix_truth_non_zero_columns,
                 self.sums_matrix_truth)
 
-            self.closest_matches.append(self.truth_data.loc[top_matches, :])
+            self.closest_matches.append(top_matches)
 
         _ = np.seterr(**NP_ACTUAL_ERROR_CONFIG)
 
