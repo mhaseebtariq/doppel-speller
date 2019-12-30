@@ -163,3 +163,13 @@ def get_predictions_accuracy(**kwargs):
     """)
 
     return true_positives, true_negatives, false_positives, false_negatives
+
+
+@cli.command()
+@time_usage
+def save_nearest_matches_for_train_data(**kwargs):
+    import doppelspeller.constants as c
+    from doppelspeller.encoding import Encoding
+
+    encoding = Encoding(c.DATA_TYPE_TRAIN)
+    encoding.process()

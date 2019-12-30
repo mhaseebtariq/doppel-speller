@@ -3,8 +3,8 @@ import time
 import logging
 
 import numpy as np
-from numba import njit
-from numba.typed import List
+# from numba import njit
+# from numba.typed import List
 from scipy.sparse import lil_matrix
 
 import doppelspeller.constants as c
@@ -22,7 +22,7 @@ DATA_TYPE_MAPPING = {
 LOGGER = logging.getLogger(__name__)
 
 
-@njit(fastmath=True, parallel=True)
+# @njit(fastmath=True, parallel=True)
 def get_top_matches(top_n, number_of_truth_titles, max_intersection_possible,
                     matrix_non_zero_columns, matrix_truth_non_zero_columns, sums_matrix_truth):
     """
@@ -58,8 +58,8 @@ class Encoding:
     matrix_truth = None
     sums_matrix_truth = None
     closest_matches = []
-    matrix_truth_non_zero_columns = List()
-    matrix_non_zero_columns = List()
+    matrix_truth_non_zero_columns = []  # List()
+    matrix_non_zero_columns = []  # List()
 
     def __init__(self, data_type):
         self.data_type = data_type
@@ -100,9 +100,11 @@ class Encoding:
         np.seterr(divide='ignore', invalid='ignore')
 
         iteration_start = time.time()
+        total = len(self.data)
         for index in self.data.index:
             if not (index + 1) % 1000:
-                LOGGER.info(index + 1, round(time.time() - iteration_start, 2))
+                LOGGER.info(f'Processed: {index + 1} of {total}| '
+                            f'Iteration time: {round(time.time() - iteration_start, 2)}')
                 iteration_start = time.time()
 
             max_intersection_possible = sum([self._get_idf_given_index(r) for r in self.matrix_non_zero_columns[index]])
@@ -143,8 +145,3 @@ class Encoding:
         )
 
         self._find_matches()
-
-
-if __name__ == '__main__':
-    encoding = Encoding('train')
-    encoding.process()
