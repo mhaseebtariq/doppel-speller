@@ -31,7 +31,8 @@ Alias of `generate_lsh_forest` in [cli.py](./doppelspeller/cli.py)
 * Given the "truth" database (see `GROUND_TRUTH_FILE` in [settings.py](./doppelspeller/settings.py)):
     - Generates a Locality-sensitive hashing (LSH) forest for fetching the nearest title matches
     - "Nearest", based on the Jaccard distance computed on ngrams (n=3) of the titles
-* The computation can definitely be improved by using a different distance metric, computed over high dimensional (character <-> numeric encoded) matrices
+* The computation can definitely be improved by using a different distance metric, computed over high dimensional
+(character <-> numeric encoded) matrices | Work in progress [encoding.py](doppelspeller/encoding.py)
 
 #### `make prepare-data-for-features-generation`
 Alias of `prepare_data_for_features_generations` in [cli.py](./doppelspeller/cli.py)
