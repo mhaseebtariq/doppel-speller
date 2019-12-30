@@ -4,6 +4,7 @@ import logging
 
 import click
 
+import doppelspeller.constants as c
 from doppelspeller import __version__, __build__
 from doppelspeller.cli_utils import time_usage
 
@@ -166,10 +167,10 @@ def get_predictions_accuracy(**kwargs):
 
 
 @cli.command()
+@click.option('-t', '--data-type', 'data_type', default=c.DATA_TYPE_TRAIN)
 @time_usage
-def save_nearest_matches_for_train_data(**kwargs):
-    import doppelspeller.constants as c
+def save_nearest_matches(**kwargs):
     from doppelspeller.encoding import Encoding
 
-    encoding = Encoding(c.DATA_TYPE_TRAIN)
+    encoding = Encoding(kwargs['data_type'])
     encoding.process()

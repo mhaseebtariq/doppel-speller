@@ -1,6 +1,7 @@
 import math
 import time
 import logging
+import _pickle as pickle
 
 import numpy as np
 # from numba import njit
@@ -16,6 +17,14 @@ ENCODING_FLOAT_TYPE = np.float32
 DATA_TYPE_MAPPING = {
     c.DATA_TYPE_TRAIN: get_train_data,
     c.DATA_TYPE_TEST: get_test_data,
+}
+OUTPUT_FILE_MAPPING = {
+    c.DATA_TYPE_TRAIN: s.NEAREST_TITLES_TRAIN_FILE,
+    c.DATA_TYPE_TEST: s.NEAREST_TITLES_TEST_FILE,
+}
+NEAREST_N_MAPPING = {
+    c.DATA_TYPE_TRAIN: s.TOP_N_RESULTS_TO_FIND_FOR_TRAINING,
+    c.DATA_TYPE_TEST: s.TOP_N_RESULTS_TO_FIND_FOR_PREDICTING,
 }
 
 
@@ -37,7 +46,7 @@ def get_top_matches(top_n, number_of_truth_titles, max_intersection_possible,
     delta = np.copy(scores)
     delta[delta > 0] = max_intersection_possible - delta[delta > 0]
     modified_jaccard = np.divide(scores, (sums_matrix_truth + delta))
-    top_n_matches = np.argsort(-modified_jaccard)[:top_n]
+    top_n_matches = np.array(np.argsort(-modified_jaccard)[:top_n], dtype=np.uint32)
 
     scores = None
     delta = None
@@ -57,7 +66,7 @@ class Encoding:
     matrix = None
     matrix_truth = None
     sums_matrix_truth = None
-    closest_matches = []
+    closest_matches = np.array([], dtype=np.uint32)
     matrix_truth_non_zero_columns = []  # List()
     matrix_non_zero_columns = []  # List()
 
@@ -112,19 +121,22 @@ class Encoding:
         total = len(self.matrix_non_zero_columns)
         for count, non_zero_columns_for_the_row in enumerate(self.matrix_non_zero_columns):
             if not (count + 1) % 1000:
-                LOGGER.info(f'Processed: {count + 1} of {total}| '
+                LOGGER.info(f'Processed: {count + 1} of {total} | '
                             f'Iteration time: {round(time.time() - iteration_start, 2)}')
                 iteration_start = time.time()
 
             max_intersection_possible = sum([self._get_idf_given_index(r) for r in non_zero_columns_for_the_row])
             top_matches = get_top_matches(
-                s.TOP_N_RESULTS_TO_FIND, self.number_of_truth_titles, max_intersection_possible,
+                NEAREST_N_MAPPING[self.data_type], self.number_of_truth_titles, max_intersection_possible,
                 non_zero_columns_for_the_row, self.matrix_truth_non_zero_columns,
                 self.sums_matrix_truth)
 
-            self.closest_matches.append(top_matches)
+            self.closest_matches = np.append(self.closest_matches, top_matches)
 
         _ = np.seterr(**NP_ACTUAL_ERROR_CONFIG)
+
+        with open(OUTPUT_FILE_MAPPING[self.data_type], 'wb') as fl:
+            pickle.dump(self.closest_matches, fl)
 
     def process(self):
         self.data = DATA_TYPE_MAPPING[self.data_type](trim_large_titles=False)
