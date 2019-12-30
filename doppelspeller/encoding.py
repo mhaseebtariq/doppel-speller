@@ -29,7 +29,7 @@ def get_top_matches(top_n, number_of_truth_titles, max_intersection_possible,
     TODO: Set the proper function signatures for better speed!
     """
 
-    scores = np.zeros((number_of_truth_titles,), dtype=np.float32)
+    scores = np.zeros((number_of_truth_titles,), dtype=ENCODING_FLOAT_TYPE)
     for non_zero_column in non_zero_columns_for_the_row:
         columns, values = matrix_truth_non_zero_columns[non_zero_column]
         scores[columns] += values
