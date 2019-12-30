@@ -4,7 +4,6 @@ import logging
 
 import click
 
-import doppelspeller.constants as c
 from doppelspeller import __version__, __build__
 from doppelspeller.cli_utils import time_usage
 
@@ -42,17 +41,6 @@ def stage_example_data_set_on_docker_container(**kwargs):
 
 @cli.command()
 @time_usage
-def generate_lsh_forest(**kwargs):
-    """Generate the LSH forest for clustering the titles together!"""
-    from doppelspeller.clustering import generate_lsh_forest
-    from doppelspeller.common import get_ground_truth
-
-    LOGGER.info('Generating LSH forest!')
-    return generate_lsh_forest(get_ground_truth())
-
-
-@cli.command()
-@time_usage
 def prepare_data_for_features_generation(**kwargs):
     """Prepare data for features generation!"""
     from doppelspeller.feature_engineering_prepare import prepare_data_for_features_generation
@@ -81,17 +69,6 @@ def train_model(**kwargs):
 
     LOGGER.info('Training the model!')
     return train_model()
-
-
-@cli.command()
-@time_usage
-def prepare_predictions_data(**kwargs):
-    """Prepare the predictions data required for generating the predictions!"""
-    from doppelspeller.predict_prepare import PrePredictionData
-
-    LOGGER.info('Preparing the predictions data!')
-    pre_prediction_data = PrePredictionData()
-    return pre_prediction_data.process()
 
 
 @cli.command()
@@ -164,13 +141,3 @@ def get_predictions_accuracy(**kwargs):
     """)
 
     return true_positives, true_negatives, false_positives, false_negatives
-
-
-@cli.command()
-@click.option('-t', '--data-type', 'data_type', default=c.DATA_TYPE_TRAIN)
-@time_usage
-def save_nearest_matches(**kwargs):
-    from doppelspeller.encoding import Encoding
-
-    encoding = Encoding(kwargs['data_type'])
-    encoding.process()

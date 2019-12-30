@@ -4,7 +4,6 @@ import zlib
 import _pickle as pickle
 
 import psutil
-import pandas as pd
 import numpy as np
 from fuzzywuzzy import fuzz
 
@@ -49,16 +48,13 @@ class FeatureEngineering:
         columns_to_include = [c.COLUMN_GENERATED_MISSPELLED_TITLE, c.COLUMN_TRANSFORMED_TITLE]
         generated_training_data = generated_training_data.loc[:, columns_to_include]
 
-        generated_training_data.reset_index().to_pickle(s.GENERATED_TRAINING_DATA_FILE, protocol=s.PICKLE_PROTOCOL)
-        del generated_training_data
-
-        return s.GENERATED_TRAINING_DATA_FILE
+        return generated_training_data.reset_index()
 
     def _prepare_training_input_data(self):
         _ = self.populate_required_data()
-        _ = self._generate_dummy_train_data()
+        generated_training_data = self._generate_dummy_train_data()
 
-        with open(s.SIMILAR_TITLES_FILE, 'rb') as file_object:
+        with open(s.NEAREST_TITLES_TRAIN_FILE, 'rb') as file_object:
             training_data_input = pickle.load(file_object)
 
         training_data_negative = training_data_input.pop(s.TRAIN_NOT_FOUND_VALUE)
@@ -75,8 +71,6 @@ class FeatureEngineering:
         train_data_negatives_mapping = train_data[train_data.index == s.TRAIN_NOT_FOUND_VALUE].copy(deep=True)
         train_data_negatives_mapping = train_data_negatives_mapping.set_index(
             c.COLUMN_TRAIN_INDEX_COLUMN).to_dict()[c.COLUMN_TRANSFORMED_TITLE]
-
-        generated_training_data = pd.read_pickle(s.GENERATED_TRAINING_DATA_FILE)
 
         training_rows_generated = []
         for truth_title, title in zip(generated_training_data[c.COLUMN_TRANSFORMED_TITLE],
@@ -158,8 +152,8 @@ class FeatureEngineering:
         truth_words = truth_words[:n]
 
         word_lengths = [len(x) for x in truth_words]
-        tf_idf_s = [idf(x, WORDS_COUNTER, NUMBER_OF_TITLES) for x in truth_words]
-        tf_idf_s_ranks = [int(x) for x in np.argsort(tf_idf_s).argsort() + 1]
+        idf_s = [idf(x, WORDS_COUNTER, NUMBER_OF_TITLES) for x in truth_words]
+        idf_s_ranks = [int(x) for x in np.argsort(idf_s).argsort() + 1]
 
         best_scores = []
         constructed_title = []
@@ -177,8 +171,8 @@ class FeatureEngineering:
         result = tuple(
             feature_row +
             (word_lengths + extra_nans) +
-            (tf_idf_s + extra_nans) +
-            (tf_idf_s_ranks + extra_nans) +
+            (idf_s + extra_nans) +
+            (idf_s_ranks + extra_nans) +
             (best_scores + extra_nans) +
             [reconstructed_score, target]
         )

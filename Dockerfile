@@ -5,7 +5,7 @@ RUN apt-get -y update
 RUN apt-get -y install build-essential checkinstall wget
 RUN apt-get -y install gfortran
 RUN apt-get -y install liblzma-dev
-RUN apt-get -y install libllvm-8-ocaml-dev libllvm8 llvm-8 llvm-8-dev llvm-8-doc llvm-8-examples llvm-8-runtime
+# RUN apt-get -y install libllvm-8-ocaml-dev libllvm8 llvm-8 llvm-8-dev llvm-8-doc llvm-8-examples llvm-8-runtime
 RUN DEBIAN_FRONTEND=noninteractive apt-get -y install libreadline-gplv2-dev \
     libncursesw5-dev libssl-dev libsqlite3-dev tk-dev \
     libgdbm-dev libc6-dev libbz2-dev libffi-dev zlib1g-dev

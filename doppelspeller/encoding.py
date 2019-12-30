@@ -1,7 +1,6 @@
 import math
 import time
 import logging
-import _pickle as pickle
 
 import numpy as np
 # from numba import njit
@@ -17,10 +16,6 @@ ENCODING_FLOAT_TYPE = np.float32
 DATA_TYPE_MAPPING = {
     c.DATA_TYPE_TRAIN: get_train_data,
     c.DATA_TYPE_TEST: get_test_data,
-}
-OUTPUT_FILE_MAPPING = {
-    c.DATA_TYPE_TRAIN: s.NEAREST_TITLES_TRAIN_FILE,
-    c.DATA_TYPE_TEST: s.NEAREST_TITLES_TEST_FILE,
 }
 NEAREST_N_MAPPING = {
     c.DATA_TYPE_TRAIN: s.TOP_N_RESULTS_TO_FIND_FOR_TRAINING,
@@ -46,7 +41,7 @@ def get_top_matches(top_n, number_of_truth_titles, max_intersection_possible,
     delta = np.copy(scores)
     delta[delta > 0] = max_intersection_possible - delta[delta > 0]
     modified_jaccard = np.divide(scores, (sums_matrix_truth + delta))
-    top_n_matches = np.array(np.argsort(-modified_jaccard)[:top_n], dtype=np.uint32)
+    top_n_matches = np.argsort(-modified_jaccard)[:top_n]
 
     scores = None
     delta = None
@@ -66,7 +61,7 @@ class Encoding:
     matrix = None
     matrix_truth = None
     sums_matrix_truth = None
-    closest_matches = np.array([], dtype=np.uint32)
+    closest_matches = None
     matrix_truth_non_zero_columns = []  # List()
     matrix_non_zero_columns = []  # List()
 
@@ -109,8 +104,6 @@ class Encoding:
         np.seterr(divide='ignore', invalid='ignore')
 
         # Delete all unwanted variables
-        del self.data
-        del self.truth_data
         del self.n_grams_counter
         del self.n_grams_counter_truth
         del self.n_grams_encoding
@@ -119,6 +112,7 @@ class Encoding:
 
         iteration_start = time.time()
         total = len(self.matrix_non_zero_columns)
+        closest_matches = np.array([], dtype=np.uint32)
         for count, non_zero_columns_for_the_row in enumerate(self.matrix_non_zero_columns):
             if not (count + 1) % 1000:
                 LOGGER.info(f'Processed: {count + 1} of {total} | '
@@ -131,12 +125,18 @@ class Encoding:
                 non_zero_columns_for_the_row, self.matrix_truth_non_zero_columns,
                 self.sums_matrix_truth)
 
-            self.closest_matches = np.append(self.closest_matches, top_matches)
+            # Convert indices to title_id's
+            # TODO: title_id's are being converted to integers here - everywhere else they are strings
+            top_matches = np.array(self.truth_data.loc[top_matches, c.COLUMN_TITLE_ID].values, dtype=np.uint16)
+
+            if closest_matches.shape == (0,):
+                closest_matches = top_matches
+            else:
+                closest_matches = np.vstack((closest_matches, top_matches))
 
         _ = np.seterr(**NP_ACTUAL_ERROR_CONFIG)
 
-        with open(OUTPUT_FILE_MAPPING[self.data_type], 'wb') as fl:
-            pickle.dump(self.closest_matches, fl)
+        self.closest_matches = closest_matches
 
     def process(self):
         self.data = DATA_TYPE_MAPPING[self.data_type](trim_large_titles=False)

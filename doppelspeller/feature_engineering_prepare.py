@@ -5,7 +5,7 @@ import _pickle as pickle
 
 import doppelspeller.settings as s
 import doppelspeller.constants as c
-from doppelspeller.common import get_train_data, get_min_hash
+from doppelspeller.encoding import Encoding
 
 
 LOGGER = logging.getLogger(__name__)
@@ -24,38 +24,35 @@ KEYBOARD_CARTESIAN = {
 def prepare_data_for_features_generation():
     LOGGER.info('Loading LSH forest!')
 
-    with open(s.LSH_FOREST_OUTPUT_FILE, 'rb') as file_object:
-        forest = pickle.load(file_object)
+    encoding = Encoding(c.DATA_TYPE_TRAIN)
+    encoding.process()
 
-    train_data = get_train_data()
-
-    train_data.loc[:, c.COLUMN_SEQUENCES_MIN_HASH] = train_data.loc[:, c.COLUMN_N_GRAMS].apply(
-        lambda x: get_min_hash(x, s.NUMBER_OF_PERMUTATIONS))
-
+    train_data = encoding.data
+    closest_matches = encoding.closest_matches
     train_length = len(train_data)
     similar_titles = {s.TRAIN_NOT_FOUND_VALUE: {}}
-    for index, (title_id, sequences_min_hash) in enumerate(
-            zip(train_data[c.COLUMN_TITLE_ID], train_data[c.COLUMN_SEQUENCES_MIN_HASH])):
 
-        matches = forest.query(sequences_min_hash, s.TRAIN_DATA_NEAREST_N)
+    for row, title_id in enumerate(train_data[c.COLUMN_TITLE_ID]):
+
+        matches = [str(x) for x in closest_matches[row]]
 
         if title_id == s.TRAIN_NOT_FOUND_VALUE:
-            similar_titles[title_id][index] = matches
+            similar_titles[title_id][row] = matches
             continue
         else:
             similar_titles[title_id] = matches
 
         if title_id not in matches:
-            if len(similar_titles[title_id]) == s.TRAIN_DATA_NEAREST_N:
+            if len(similar_titles[title_id]) == s.TOP_N_RESULTS_TO_FIND_FOR_TRAINING:
                 similar_titles[title_id].pop()
 
             similar_titles[title_id].append(title_id)
 
-        if not ((index+1) % 10000):
-            LOGGER.info(f'Processed {index+1} of {train_length}...!')
+        if not ((row+1) % 10000):
+            LOGGER.info(f'Processed {row+1} of {train_length}...!')
 
-    with open(s.SIMILAR_TITLES_FILE, 'wb') as file_object:
-        pickle.dump(similar_titles, file_object, protocol=s.PICKLE_PROTOCOL)
+    with open(s.NEAREST_TITLES_TRAIN_FILE, 'wb') as fl:
+        pickle.dump(similar_titles, fl)
 
     return s.SIMILAR_TITLES_FILE
 

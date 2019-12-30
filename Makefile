@@ -25,9 +25,6 @@ test:
 stage-example-data-set:
 	docker-compose up -d && docker exec -t doppelspeller doppel-speller -vv stage-example-data-set-on-docker-container
 
-generate-lsh-forest:
-	docker-compose up -d && docker exec -t doppelspeller doppel-speller -vv generate-lsh-forest
-
 prepare-data-for-features-generation:
 	docker-compose up -d && docker exec -t doppelspeller doppel-speller -vv prepare-data-for-features-generation
 
@@ -36,9 +33,6 @@ generate-train-and-evaluation-data-sets:
 
 train-model:
 	docker-compose up -d && docker exec -t doppelspeller doppel-speller -vv train-model
-
-prepare-predictions-data:
-	docker-compose up -d && docker exec -t doppelspeller doppel-speller -vv prepare-predictions-data
 
 generate-predictions:
 	docker-compose up -d && docker exec -t doppelspeller doppel-speller -vv generate-predictions

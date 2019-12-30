@@ -1,4 +1,3 @@
-import json
 import sqlite3
 import logging
 import _pickle as pickle
@@ -11,6 +10,7 @@ import xgboost as xgb
 import doppelspeller.settings as s
 import doppelspeller.constants as c
 from doppelspeller.common import get_test_data, run_in_multi_processing_mode, transform_title
+from doppelspeller.encoding import Encoding
 from doppelspeller.feature_engineering import FeatureEngineering
 
 
@@ -18,28 +18,28 @@ LOGGER = logging.getLogger(__name__)
 
 # TODO: multiprocessing module can not pickle self.<attributes>, therefore, defining global variables!
 # Try to avoid declaring these variables, maybe use pathos?
-(CONNECTION, CURSOR, LSH_FOREST, GROUND_TRUTH,
+(CONNECTION, CURSOR, GROUND_TRUTH,
  GROUND_TRUTH_MAPPING_REVERSED, GROUND_TRUTH_MAPPING, MODEL,
- WORDS_COUNTER, NUMBER_OF_WORDS) = (None, None, None, None, None, None, None, None, None)
+ NUMBER_OF_WORDS, CLOSEST_MATCHES, WORDS_COUNTER) = (None, None, None, None, None, None, None, None, None)
 
 
 class Prediction:
     def __init__(self):
         self.already_populated_required_data = False
         self.matched_so_far = []
+        self.closest_matches = None
+        self.truth_data = None
+        self.test_data = None
 
     def _populate_required_data(self):
         if self.already_populated_required_data:
             return True
 
-        global LSH_FOREST, MODEL, GROUND_TRUTH, GROUND_TRUTH_MAPPING, \
+        global MODEL, GROUND_TRUTH, GROUND_TRUTH_MAPPING, \
             GROUND_TRUTH_MAPPING_REVERSED, CONNECTION, CURSOR, \
-            WORDS_COUNTER, NUMBER_OF_WORDS
+            NUMBER_OF_WORDS, CLOSEST_MATCHES, WORDS_COUNTER
 
-        LOGGER.info('Reading LSH forest dump!')
-        with open(s.LSH_FOREST_OUTPUT_FILE, 'rb') as fl:
-            LSH_FOREST = pickle.load(fl)
-
+        CLOSEST_MATCHES = self.closest_matches
         GROUND_TRUTH, WORDS_COUNTER, _ = FeatureEngineering.populate_required_data()
 
         GROUND_TRUTH.set_index(c.COLUMN_TITLE_ID, inplace=True)
@@ -72,9 +72,10 @@ class Prediction:
 
     @staticmethod
     def _get_nearest_matches(test_id):
-        query = f'SELECT matches from {s.SQLITE_NEIGHBOURS_TABLE} WHERE test_id={test_id}'
-        CURSOR.execute(query)
-        return json.loads(CURSOR.fetchone()[0])
+        # query = f'SELECT matches from {s.SQLITE_NEIGHBOURS_TABLE} WHERE test_id={test_id}'
+        # CURSOR.execute(query)
+        # return json.loads(CURSOR.fetchone()[0])
+        return CLOSEST_MATCHES[test_id]
 
     @staticmethod
     def _save_prediction(test_id, title_to_match, best_match, best_match_id, best_match_probability):
@@ -91,16 +92,13 @@ class Prediction:
             matches_chunk = [all_nearest_found]
         else:
             all_nearest_found = Prediction._get_nearest_matches(index)
-            matches_chunk = [all_nearest_found[0:10], all_nearest_found[10:100], all_nearest_found[100:]]
+            matches_chunk = [all_nearest_found[0:10], all_nearest_found[10:100]]
 
         for matches_nearest in matches_chunk:
-            if not matches_nearest:
-                continue
-
             prediction_features = np.zeros((len(matches_nearest),), dtype=s.FEATURES_TYPES)
             matches = []
             for matrix_index, match_index in enumerate(matches_nearest):
-                match = GROUND_TRUTH_MAPPING[match_index][c.COLUMN_TRUTH_TITLE]
+                match = GROUND_TRUTH_MAPPING[str(match_index)][c.COLUMN_TRUTH_TITLE]
                 matches.append(match)
 
                 kind, title, truth_title, target = (
@@ -156,13 +154,10 @@ class Prediction:
             if not (count % 10000):
                 LOGGER.info(f'Processed {count} of {remaining_count}...')
 
-            best_match_ids = self._get_nearest_matches(index)
+            best_match_ids = self._get_nearest_matches(index)[:10]
 
-            if not best_match_ids:
-                self._save_prediction(index, title_to_match, None, s.TRAIN_NOT_FOUND_VALUE, 0.0)
-                continue
-
-            matches = [GROUND_TRUTH_MAPPING[best_match_id][c.COLUMN_TRUTH_TITLE] for best_match_id in best_match_ids]
+            matches = [GROUND_TRUTH_MAPPING[str(best_match_id)][c.COLUMN_TRUTH_TITLE]
+                       for best_match_id in best_match_ids]
             ratios = [fuzz.ratio(best_match, title_to_match) for best_match in matches]
             arg_max = np.argmax(ratios)
             max_ratio = ratios[arg_max]
@@ -223,10 +218,24 @@ class Prediction:
         self.connection.commit()
 
     def extensive_search_single_title(self, title):
+        encoding = Encoding(c.DATA_TYPE_TEST)
+        encoding.process()
+
+        self.closest_matches = encoding.closest_matches
+        self.truth_data = encoding.truth_data
+        self.test_data = encoding.data
+
         self._populate_required_data()
-        return self._generate_single_prediction(0, transform_title(title), find_closest=True)
+        return self._generate_single_prediction(0, transform_title(title, True), find_closest=True)
 
     def process(self):
+        encoding = Encoding(c.DATA_TYPE_TEST)
+        encoding.process()
+
+        self.closest_matches = encoding.closest_matches
+        self.truth_data = encoding.truth_data
+        self.test_data = encoding.data
+
         self._populate_required_data()
         self._prepare_output_database_table()
 
