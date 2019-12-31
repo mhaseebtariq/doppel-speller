@@ -146,17 +146,17 @@ def wait_for_multiprocessing_threads(threads):
     done_threads = [x for x in threads if x.done()]
     done_threads_count = len(done_threads)
     while done_threads_count != all_threads_count:
-        time.sleep(10)
+        time.sleep(5)
         LOGGER.info(f'Processed {done_threads_count} out of {all_threads_count}...')
-
-        exception_threads = [x for x in threads if x.exception()]
-        if exception_threads:
-            for thread in threads:
-                thread.cancel()
-            raise exception_threads[0].exception()
 
         done_threads = [x for x in threads if x.done()]
         done_threads_count = len(done_threads)
+
+        exception = threads[0].exception()
+        if exception:
+            for thread in threads:
+                thread.cancel()
+            raise exception
 
     LOGGER.info('Multi processing threads completed!')
 

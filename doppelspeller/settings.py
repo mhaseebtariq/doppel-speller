@@ -11,6 +11,8 @@ if not PROJECT_DATA_PATH:
     warnings.warn(f'\n\nEnvironment variable PROJECT_DATA_PATH not set! Using {PROJECT_DATA_PATH} as default!\n')
 PROJECT_DATA_PATH = os.path.abspath(PROJECT_DATA_PATH)
 
+DISABLE_NUMBA = False
+
 # Pickling settings
 PICKLE_PROTOCOL = 3
 
@@ -41,10 +43,6 @@ TEST_FILE_DELIMITER = '|'
 TEST_FILE_COLUMNS_MAPPING = {
     c.COLUMN_TITLE: 'name'
 }
-
-# LSH forest settings
-NUMBER_OF_PERMUTATIONS = 128
-LSH_FOREST_OUTPUT_FILE = f'{PROJECT_DATA_PATH}/lsh_forest.dump'
 
 # Training settings
 MODEL_DUMP_FILE = f'{PROJECT_DATA_PATH}/model.dump'
