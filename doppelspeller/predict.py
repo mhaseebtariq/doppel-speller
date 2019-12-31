@@ -10,7 +10,7 @@ import xgboost as xgb
 import doppelspeller.settings as s
 import doppelspeller.constants as c
 from doppelspeller.common import get_test_data, run_in_multi_processing_mode, transform_title
-from doppelspeller.encoding import Encoding
+from doppelspeller.match_maker import MatchMaker
 from doppelspeller.feature_engineering import FeatureEngineering
 
 
@@ -218,7 +218,7 @@ class Prediction:
         self.connection.commit()
 
     def extensive_search_single_title(self, title):
-        encoding = Encoding(c.DATA_TYPE_TEST)
+        encoding = MatchMaker(c.DATA_TYPE_TEST)
         encoding.process()
 
         self.closest_matches = encoding.closest_matches
@@ -229,7 +229,7 @@ class Prediction:
         return self._generate_single_prediction(0, transform_title(title, True), find_closest=True)
 
     def process(self):
-        encoding = Encoding(c.DATA_TYPE_TEST)
+        encoding = MatchMaker(c.DATA_TYPE_TEST)
         encoding.process()
 
         self.closest_matches = encoding.closest_matches

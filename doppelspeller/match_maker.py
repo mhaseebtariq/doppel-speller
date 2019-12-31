@@ -3,12 +3,11 @@ import time
 import logging
 
 import numpy as np
-# from numba import njit
-# from numba.typed import List
 from scipy.sparse import lil_matrix
 
 import doppelspeller.constants as c
 import doppelspeller.settings as s
+from doppelspeller import njit, List
 from doppelspeller.common import get_n_grams_counter, get_ground_truth, get_train_data, get_test_data
 
 NP_ACTUAL_ERROR_CONFIG = np.geterr()
@@ -26,30 +25,21 @@ NEAREST_N_MAPPING = {
 LOGGER = logging.getLogger(__name__)
 
 
-# @njit(fastmath=True, parallel=True)
-def get_top_matches(top_n, number_of_truth_titles, max_intersection_possible,
-                    non_zero_columns_for_the_row, matrix_truth_non_zero_columns, sums_matrix_truth):
+@njit(fastmath=True, parallel=True)
+def fast_jaccard(number_of_truth_titles, max_intersection_possible, non_zero_columns_for_the_row,
+                 matrix_truth_non_zero_columns_and_values, sums_matrix_truth):
     """
     TODO: Set the proper function signatures for better speed!
     """
-
     scores = np.zeros((number_of_truth_titles,), dtype=ENCODING_FLOAT_TYPE)
     for non_zero_column in non_zero_columns_for_the_row:
-        columns, values = matrix_truth_non_zero_columns[non_zero_column]
+        columns, values = matrix_truth_non_zero_columns_and_values[non_zero_column]
         scores[columns] += values
 
-    delta = np.copy(scores)
-    delta[delta > 0] = max_intersection_possible - delta[delta > 0]
-    modified_jaccard = np.divide(scores, (sums_matrix_truth + delta))
-    top_n_matches = np.argsort(-modified_jaccard)[:top_n]
-
-    scores = None
-    delta = None
-
-    return top_n_matches
+    return -(scores / (sums_matrix_truth + (max_intersection_possible - scores)))
 
 
-class Encoding:
+class MatchMaker:
     data = None
     truth_data = None
     n_grams_counter = None
@@ -61,12 +51,15 @@ class Encoding:
     matrix = None
     matrix_truth = None
     sums_matrix_truth = None
-    closest_matches = None
-    matrix_truth_non_zero_columns = []  # List()
-    matrix_non_zero_columns = []  # List()
+    closest_matches = []
+    matrix_truth_non_zero_columns_and_values = List()
+    matrix_non_zero_columns = List()
 
-    def __init__(self, data_type):
+    def __init__(self, data_type, approximate=False):
         self.data_type = data_type
+        self.approximate = approximate
+
+        self.top_n = NEAREST_N_MAPPING[self.data_type]
 
     def _idf(self, word):
         """
@@ -100,6 +93,23 @@ class Encoding:
     def _get_idf_given_index(self, index):
         return self.idf_s_mapping.get(self.n_grams_decoding[index], self.max_idf_value)
 
+    @staticmethod
+    def _top_k_hybrid(array, k, axis=-1):
+        """
+        Taken from : https://stackoverflow.com/a/42186357
+        """
+        arg_partition = array.argpartition(k, axis=axis)[(*axis % array.ndim * (slice(None),), slice(k))]
+        return np.take_along_axis(arg_partition, np.take_along_axis(array, arg_partition, axis).argsort(axis), axis)
+
+    def _get_top_n_matches(self, modified_jaccard):
+        if self.approximate:
+            modified_jaccard = np.array(modified_jaccard, dtype=np.float16)
+
+        # top_matches = modified_jaccard.argpartition(range(self.top_n))[:self.top_n]
+        # top_matches = modified_jaccard.argsort()[:self.top_n]
+        top_matches = self._top_k_hybrid(modified_jaccard, self.top_n)
+        return np.array(self.truth_data.loc[top_matches, c.COLUMN_TITLE_ID].values, dtype=np.uint32)
+
     def _find_matches(self):
         np.seterr(divide='ignore', invalid='ignore')
 
@@ -112,31 +122,22 @@ class Encoding:
 
         iteration_start = time.time()
         total = len(self.matrix_non_zero_columns)
-        closest_matches = np.array([], dtype=np.uint32)
         for count, non_zero_columns_for_the_row in enumerate(self.matrix_non_zero_columns):
-            if not (count + 1) % 1000:
+            if not (count + 1) % 5000:
                 LOGGER.info(f'Processed: {count + 1} of {total} | '
                             f'Iteration time: {round(time.time() - iteration_start, 2)}')
                 iteration_start = time.time()
 
             max_intersection_possible = sum([self._get_idf_given_index(r) for r in non_zero_columns_for_the_row])
-            top_matches = get_top_matches(
-                NEAREST_N_MAPPING[self.data_type], self.number_of_truth_titles, max_intersection_possible,
-                non_zero_columns_for_the_row, self.matrix_truth_non_zero_columns,
-                self.sums_matrix_truth)
 
-            # Convert indices to title_id's
-            # TODO: title_id's are being converted to integers here - everywhere else they are strings
-            top_matches = np.array(self.truth_data.loc[top_matches, c.COLUMN_TITLE_ID].values, dtype=np.uint16)
+            modified_jaccard = fast_jaccard(
+                self.number_of_truth_titles, max_intersection_possible, non_zero_columns_for_the_row,
+                self.matrix_truth_non_zero_columns_and_values, self.sums_matrix_truth
+            )
 
-            if closest_matches.shape == (0,):
-                closest_matches = top_matches
-            else:
-                closest_matches = np.vstack((closest_matches, top_matches))
+            self.closest_matches.append(self._get_top_n_matches(modified_jaccard))
 
         _ = np.seterr(**NP_ACTUAL_ERROR_CONFIG)
-
-        self.closest_matches = closest_matches
 
     def process(self):
         self.data = DATA_TYPE_MAPPING[self.data_type](trim_large_titles=False)
@@ -159,7 +160,7 @@ class Encoding:
         for row in range(self.matrix_truth.shape[0]):
             non_zero_columns = self.matrix_truth[row].nonzero()[1]
             values = np.array([self._get_idf_given_index(row)] * len(non_zero_columns), dtype=ENCODING_FLOAT_TYPE)
-            self.matrix_truth_non_zero_columns.append((non_zero_columns, values))
+            self.matrix_truth_non_zero_columns_and_values.append((non_zero_columns, values))
 
         self.sums_matrix_truth = np.array(
             [x for x in np.sum(self.matrix_truth, axis=0).data.tolist()][0], dtype=ENCODING_FLOAT_TYPE

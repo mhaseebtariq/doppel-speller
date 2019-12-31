@@ -5,7 +5,7 @@ import _pickle as pickle
 
 import doppelspeller.settings as s
 import doppelspeller.constants as c
-from doppelspeller.encoding import Encoding
+from doppelspeller.match_maker import MatchMaker
 
 
 LOGGER = logging.getLogger(__name__)
@@ -24,7 +24,7 @@ KEYBOARD_CARTESIAN = {
 def prepare_data_for_features_generation():
     LOGGER.info('Loading LSH forest!')
 
-    encoding = Encoding(c.DATA_TYPE_TRAIN)
+    encoding = MatchMaker(c.DATA_TYPE_TRAIN)
     encoding.process()
 
     train_data = encoding.data
