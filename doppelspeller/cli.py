@@ -41,24 +41,44 @@ def stage_example_data_set_on_docker_container(**kwargs):
 
 @cli.command()
 @time_usage
-def prepare_data_for_features_generation(**kwargs):
-    """Prepare data for features generation!"""
-    from doppelspeller.feature_engineering_prepare import prepare_data_for_features_generation
+def pre_process_data(**kwargs):
+    """Prepare data sets!"""
+    import _pickle as pickle
 
-    LOGGER.info('Preparing data for features generation!')
-    return prepare_data_for_features_generation()
+    import doppelspeller.settings as s
+    import doppelspeller.constants as c
+    from doppelspeller.common import get_ground_truth, get_train_data, get_test_data
+    from doppelspeller.match_maker import MatchMaker
 
+    ground_truth, train_data, test_data = get_ground_truth(), get_train_data(), get_test_data()
 
-@cli.command()
-@time_usage
-def generate_train_and_evaluation_data_sets(**kwargs):
-    """Generate train and evaluation data-sets!"""
-    from doppelspeller.feature_engineering import FeatureEngineering
+    LOGGER.info(f'Finding nearest {s.TOP_N_RESULTS_TO_FIND_FOR_TRAINING} matches for "train" data!')
+    matcher_train = MatchMaker(train_data, ground_truth,
+                               s.TOP_N_RESULTS_TO_FIND_FOR_TRAINING)
+    matcher_train.process()
+    matches_train = matcher_train.closest_matches
+    del matcher_train
 
-    LOGGER.info('Generating train and evaluation data-sets!')
+    LOGGER.info(f'Finding nearest {s.TOP_N_RESULTS_TO_FIND_FOR_PREDICTING} matches for "test" data!')
+    matcher_test = MatchMaker(test_data, ground_truth, s.TOP_N_RESULTS_TO_FIND_FOR_PREDICTING)
+    matcher_test.process()
+    matches_test = matcher_test.closest_matches
+    del matcher_test
 
-    features = FeatureEngineering()
-    return features.generate_train_and_evaluation_data_sets()
+    with open(s.PRE_REQUISITE_TRAIN_DATA_FILE, 'wb') as fl:
+        pickle.dump({
+            c.DATA_TYPE_TRUTH: ground_truth,
+            c.DATA_TYPE_TRAIN: train_data,
+            c.DATA_TYPE_NEAREST_TRAIN: matches_train
+        }, fl)
+    with open(s.PRE_REQUISITE_TEST_DATA_FILE, 'wb') as fl:
+        pickle.dump({
+            c.DATA_TYPE_TRUTH: ground_truth,
+            c.DATA_TYPE_TEST: test_data,
+            c.DATA_TYPE_NEAREST_TEST: matches_test,
+        }, fl)
+
+    return True
 
 
 @cli.command()
@@ -112,11 +132,11 @@ def get_predictions_accuracy(**kwargs):
     import doppelspeller.constants as c
     import doppelspeller.settings as s
 
-    title_id_actual = s.TRAIN_FILE_COLUMNS_MAPPING[c.COLUMN_TITLE_ID]
     try:
-        actual = pd.read_csv(s.TEST_WITH_ACTUAL_FILE, sep=s.TEST_FILE_DELIMITER).to_dict()[title_id_actual]
+        actual = pd.read_csv(
+            s.TEST_WITH_ACTUALS_FILE, sep=s.TEST_FILE_DELIMITER).to_dict()[s.TEST_WITH_ACTUALS_TITLE_ID]
     except:  # noqa
-        raise Exception(f'Error reading {s.TEST_WITH_ACTUAL_FILE} (TEST_WITH_ACTUAL_FILE in settings.py)')
+        raise Exception(f'Error reading {s.TEST_WITH_ACTUALS_FILE} (TEST_WITH_ACTUAL_FILE in settings.py)')
     predictions = pd.read_csv(s.FINAL_OUTPUT_FILE, sep=s.TEST_FILE_DELIMITER).to_dict()[c.COLUMN_TITLE_ID]
 
     true_positives, true_negatives, false_positives, false_negatives = 0, 0, 0, 0

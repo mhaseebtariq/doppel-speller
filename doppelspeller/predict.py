@@ -9,8 +9,7 @@ import xgboost as xgb
 
 import doppelspeller.settings as s
 import doppelspeller.constants as c
-from doppelspeller.common import get_test_data, run_in_multi_processing_mode, transform_title
-from doppelspeller.match_maker import MatchMaker
+from doppelspeller.common import run_in_multi_processing_mode, transform_title, load_processed_test_data
 from doppelspeller.feature_engineering import FeatureEngineering
 
 
@@ -18,9 +17,9 @@ LOGGER = logging.getLogger(__name__)
 
 # TODO: multiprocessing module can not pickle self.<attributes>, therefore, defining global variables!
 # Try to avoid declaring these variables, maybe use pathos?
-(CONNECTION, CURSOR, GROUND_TRUTH,
+(CONNECTION, CURSOR, GROUND_TRUTH, TEST_DATA,
  GROUND_TRUTH_MAPPING_REVERSED, GROUND_TRUTH_MAPPING, MODEL,
- NUMBER_OF_WORDS, CLOSEST_MATCHES, WORDS_COUNTER) = (None, None, None, None, None, None, None, None, None)
+ NUMBER_OF_WORDS, CLOSEST_MATCHES, WORDS_COUNTER) = (None, None, None, None, None, None, None, None, None, None)
 
 
 class Prediction:
@@ -35,12 +34,12 @@ class Prediction:
         if self.already_populated_required_data:
             return True
 
-        global MODEL, GROUND_TRUTH, GROUND_TRUTH_MAPPING, \
+        global MODEL, GROUND_TRUTH, TEST_DATA, GROUND_TRUTH_MAPPING, \
             GROUND_TRUTH_MAPPING_REVERSED, CONNECTION, CURSOR, \
             NUMBER_OF_WORDS, CLOSEST_MATCHES, WORDS_COUNTER
 
         CLOSEST_MATCHES = self.closest_matches
-        GROUND_TRUTH, WORDS_COUNTER, _ = FeatureEngineering.populate_required_data()
+        GROUND_TRUTH, _, TEST_DATA, WORDS_COUNTER, _ = FeatureEngineering.populate_required_data(test_data=True)
 
         GROUND_TRUTH.set_index(c.COLUMN_TITLE_ID, inplace=True)
         GROUND_TRUTH.sort_index(inplace=True)
@@ -66,15 +65,12 @@ class Prediction:
         with open(s.MODEL_DUMP_FILE, 'rb') as fl:
             MODEL = pickle.load(fl)
 
-        self.test_data = get_test_data()
+        self.test_data = TEST_DATA.copy(deep=True)
 
         self.already_populated_required_data = True
 
     @staticmethod
     def _get_nearest_matches(test_id):
-        # query = f'SELECT matches from {s.SQLITE_NEIGHBOURS_TABLE} WHERE test_id={test_id}'
-        # CURSOR.execute(query)
-        # return json.loads(CURSOR.fetchone()[0])
         return CLOSEST_MATCHES[test_id]
 
     @staticmethod
@@ -98,7 +94,7 @@ class Prediction:
             prediction_features = np.zeros((len(matches_nearest),), dtype=s.FEATURES_TYPES)
             matches = []
             for matrix_index, match_index in enumerate(matches_nearest):
-                match = GROUND_TRUTH_MAPPING[str(match_index)][c.COLUMN_TRUTH_TITLE]
+                match = GROUND_TRUTH_MAPPING[match_index][c.COLUMN_TRUTH_TITLE]
                 matches.append(match)
 
                 kind, title, truth_title, target = (
@@ -156,7 +152,7 @@ class Prediction:
 
             best_match_ids = self._get_nearest_matches(index)[:10]
 
-            matches = [GROUND_TRUTH_MAPPING[str(best_match_id)][c.COLUMN_TRUTH_TITLE]
+            matches = [GROUND_TRUTH_MAPPING[best_match_id][c.COLUMN_TRUTH_TITLE]
                        for best_match_id in best_match_ids]
             ratios = [fuzz.ratio(best_match, title_to_match) for best_match in matches]
             arg_max = np.argmax(ratios)
@@ -195,8 +191,6 @@ class Prediction:
             f"FROM {s.SQLITE_PREDICTIONS_TABLE}", self.connection)
 
         not_matched_rows = self.test_data.loc[~self.test_data.index.isin(self.matched_so_far), :].copy(deep=True)
-        not_matched_rows.index.name = c.COLUMN_TEST_INDEX
-        not_matched_rows.reset_index(inplace=True)
         not_matched_rows.loc[:, c.COLUMN_TITLE_ID] = s.TRAIN_NOT_FOUND_VALUE
         not_matched_rows = not_matched_rows.loc[:, [c.COLUMN_TEST_INDEX, c.COLUMN_TITLE_ID]].copy(deep=True)
 
@@ -218,23 +212,21 @@ class Prediction:
         self.connection.commit()
 
     def extensive_search_single_title(self, title):
-        encoding = MatchMaker(c.DATA_TYPE_TEST)
-        encoding.process()
+        processed_data = load_processed_test_data()
 
-        self.closest_matches = encoding.closest_matches
-        self.truth_data = encoding.truth_data
-        self.test_data = encoding.data
+        self.closest_matches = processed_data[c.DATA_TYPE_NEAREST_TEST]
+        self.truth_data = processed_data[c.DATA_TYPE_TRUTH]
+        self.test_data = processed_data[c.DATA_TYPE_TEST]
 
         self._populate_required_data()
-        return self._generate_single_prediction(0, transform_title(title, True), find_closest=True)
+        return self._generate_single_prediction(0, transform_title(title), find_closest=True)
 
     def process(self):
-        encoding = MatchMaker(c.DATA_TYPE_TEST)
-        encoding.process()
+        processed_data = load_processed_test_data()
 
-        self.closest_matches = encoding.closest_matches
-        self.truth_data = encoding.truth_data
-        self.test_data = encoding.data
+        self.closest_matches = processed_data[c.DATA_TYPE_NEAREST_TEST]
+        self.truth_data = processed_data[c.DATA_TYPE_TRUTH]
+        self.test_data = processed_data[c.DATA_TYPE_TEST]
 
         self._populate_required_data()
         self._prepare_output_database_table()

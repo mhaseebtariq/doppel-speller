@@ -25,11 +25,8 @@ test:
 stage-example-data-set:
 	docker-compose up -d && docker exec -t doppelspeller doppel-speller -vv stage-example-data-set-on-docker-container
 
-prepare-data-for-features-generation:
-	docker-compose up -d && docker exec -t doppelspeller doppel-speller -vv prepare-data-for-features-generation
-
-generate-train-and-evaluation-data-sets:
-	docker-compose up -d && docker exec -t doppelspeller doppel-speller -vv generate-train-and-evaluation-data-sets
+pre-process-data:
+	docker-compose up -d && docker exec -t doppelspeller doppel-speller -vv pre-process-data
 
 train-model:
 	docker-compose up -d && docker exec -t doppelspeller doppel-speller -vv train-model

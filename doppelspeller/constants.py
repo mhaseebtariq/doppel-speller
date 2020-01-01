@@ -26,15 +26,17 @@ COLUMN_TEST_INDEX = 'test_index'
 COLUMN_EXACT = 'exact'
 COLUMN_TRAIN_KIND = 'kind'
 COLUMN_DISTANCE = 'levenshtein'
-COLUMN_TRAIN_INDEX_COLUMN = 'train_index'
+COLUMN_TRAIN_INDEX = 'train_index'
 COLUMN_GENERATED_MISSPELLED_TITLE = 'generated_misspelled_title'
 COLUMN_TARGET = 'target'
 COLUMN_RECONSTRUCTED_SCORE = 'reconstructed_score'
-
 
 TRAINING_KIND_GENERATED = 1
 TRAINING_KIND_NEGATIVE = 2
 TRAINING_KIND_POSITIVE = 3
 
-DATA_TYPE_TRAIN = 'train'
-DATA_TYPE_TEST = 'test'
+DATA_TYPE_TRUTH = 'type_truth'
+DATA_TYPE_TRAIN = 'type_train'
+DATA_TYPE_TEST = 'type_test'
+DATA_TYPE_NEAREST_TRAIN = 'type_nearest_train'
+DATA_TYPE_NEAREST_TEST = 'type_nearest_test'

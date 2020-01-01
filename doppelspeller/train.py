@@ -7,6 +7,7 @@ import xgboost as xgb
 
 import doppelspeller.settings as s
 from doppelspeller.common import get_number_of_cpu_workers
+from doppelspeller.feature_engineering import FeatureEngineering
 
 
 LOGGER = logging.getLogger(__name__)
@@ -48,14 +49,10 @@ def get_xgb_feats_importance(model):
 
 
 def train_model():
-    with open(s.TRAIN_OUTPUT_FILE, 'rb') as fl:
-        train = pickle.load(fl)
-    with open(s.TRAIN_TARGET_OUTPUT_FILE, 'rb') as fl:
-        train_target = pickle.load(fl)
-    with open(s.EVALUATION_OUTPUT_FILE, 'rb') as fl:
-        evaluation = pickle.load(fl)
-    with open(s.EVALUATION_TARGET_OUTPUT_FILE, 'rb') as fl:
-        evaluation_target = pickle.load(fl)
+    LOGGER.info('Generating train and evaluation data-sets!')
+
+    features = FeatureEngineering()
+    train, train_target, evaluation, evaluation_target = features.generate_train_and_evaluation_data_sets()
 
     train_set = np.array(train.tolist(), dtype=np.float16)
     features_names = list(train.dtype.names)
@@ -98,6 +95,6 @@ def train_model():
     features_importance_data = get_xgb_feats_importance(model)
 
     with open(s.MODEL_DUMP_FILE, 'wb') as file_object:
-        pickle.dump(model, file_object, protocol=s.PICKLE_PROTOCOL)
+        pickle.dump(model, file_object)
 
     return features_importance_data

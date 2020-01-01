@@ -1,7 +1,5 @@
 import logging
 import sys
-import zlib
-import _pickle as pickle
 
 import psutil
 import numpy as np
@@ -9,28 +7,36 @@ from fuzzywuzzy import fuzz
 
 import doppelspeller.settings as s
 import doppelspeller.constants as c
-from doppelspeller.feature_engineering_prepare import generate_misspelled_name
-from doppelspeller.common import (get_words_counter, get_train_data, get_ground_truth, idf,
-                                  run_in_multi_processing_mode)
+from doppelspeller.feature_engineering_prepare import get_closest_matches_per_training_row, generate_misspelled_name
+from doppelspeller.common import (get_words_counter, load_processed_train_data, load_processed_test_data,
+                                  idf, run_in_multi_processing_mode)
 
 
 LOGGER = logging.getLogger(__name__)
 
 # TODO: multiprocessing module can not pickle self.<attributes>, therefore, defining global variables!
 # Try to avoid declaring these variables, maybe use pathos?
-GROUND_TRUTH, WORDS_COUNTER, NUMBER_OF_TITLES = None, None, None
+GROUND_TRUTH, TRAIN_DATA, TEST_DATA, WORDS_COUNTER, NUMBER_OF_TITLES = None, None, None, None, None
 
 
 class FeatureEngineering:
     @staticmethod
-    def populate_required_data():
-        global GROUND_TRUTH, WORDS_COUNTER, NUMBER_OF_TITLES
+    def populate_required_data(test_data=False):
+        global GROUND_TRUTH, TRAIN_DATA, TEST_DATA, WORDS_COUNTER, NUMBER_OF_TITLES
 
-        GROUND_TRUTH = get_ground_truth()
+        if test_data:
+            processed_data = load_processed_test_data()
+            TEST_DATA = processed_data[c.DATA_TYPE_TEST]
+        else:
+            processed_data = load_processed_train_data()
+            TRAIN_DATA = processed_data[c.DATA_TYPE_TRAIN]
+
+        GROUND_TRUTH = processed_data[c.DATA_TYPE_TRUTH]
+
         WORDS_COUNTER = get_words_counter(GROUND_TRUTH)
         NUMBER_OF_TITLES = len(GROUND_TRUTH)
 
-        return GROUND_TRUTH, WORDS_COUNTER, NUMBER_OF_TITLES
+        return GROUND_TRUTH, TRAIN_DATA, TEST_DATA, WORDS_COUNTER, NUMBER_OF_TITLES
 
     @staticmethod
     def _generate_dummy_train_data():
@@ -53,24 +59,22 @@ class FeatureEngineering:
     def _prepare_training_input_data(self):
         _ = self.populate_required_data()
         generated_training_data = self._generate_dummy_train_data()
-
-        with open(s.NEAREST_TITLES_TRAIN_FILE, 'rb') as file_object:
-            training_data_input = pickle.load(file_object)
+        training_data_input = get_closest_matches_per_training_row()
 
         training_data_negative = training_data_input.pop(s.TRAIN_NOT_FOUND_VALUE)
 
         ground_truth_mapping = GROUND_TRUTH.set_index(c.COLUMN_TITLE_ID).copy(deep=True)
         ground_truth_mapping = ground_truth_mapping.to_dict()[c.COLUMN_TRANSFORMED_TITLE]
 
-        train_data = get_train_data()
-        train_data.loc[:, c.COLUMN_TRAIN_INDEX_COLUMN] = list(train_data.index)
+        train_data = TRAIN_DATA.copy(deep=True)
+        train_data.loc[:, c.COLUMN_TRAIN_INDEX] = list(train_data.index)
         train_data = train_data.set_index(c.COLUMN_TITLE_ID)
         del train_data[c.COLUMN_TITLE]
         train_data_mapping = train_data.to_dict()[c.COLUMN_TRANSFORMED_TITLE]
 
         train_data_negatives_mapping = train_data[train_data.index == s.TRAIN_NOT_FOUND_VALUE].copy(deep=True)
         train_data_negatives_mapping = train_data_negatives_mapping.set_index(
-            c.COLUMN_TRAIN_INDEX_COLUMN).to_dict()[c.COLUMN_TRANSFORMED_TITLE]
+            c.COLUMN_TRAIN_INDEX).to_dict()[c.COLUMN_TRANSFORMED_TITLE]
 
         training_rows_generated = []
         for truth_title, title in zip(generated_training_data[c.COLUMN_TRANSFORMED_TITLE],
@@ -119,7 +123,7 @@ class FeatureEngineering:
             set(list(evaluation_generated_index) + list(evaluation_negative_index) + list(evaluation_positive_index))))
 
     @staticmethod
-    def construct_features(kind, title, truth_title, target, n=s.NUMBER_OF_WORDS_FEATURES, compress=False):
+    def construct_features(kind, title, truth_title, target, n=s.NUMBER_OF_WORDS_FEATURES):
         """
         Constructs a feature row per "title" and "title_truth" strings
         :param kind: "Kind" of feature row see -
@@ -128,7 +132,6 @@ class FeatureEngineering:
         :param truth_title: Title to match against
         :param target: True or False - whether the "title" and "title_truth" are a match or not
         :param n: NUMBER_OF_WORDS_FEATURES to consider while defining idf related features (defined in settings.py)
-        :param compress: Whether to compress the output tuple
         :return: A tuple corresponding to FEATURES_TYPES (settings.py)
         """
         feature_row = [kind]
@@ -177,9 +180,6 @@ class FeatureEngineering:
             [reconstructed_score, target]
         )
 
-        if compress:
-            return zlib.compress(pickle.dumps(result))
-
         return result
 
     def generate_train_and_evaluation_data_sets(self):
@@ -197,11 +197,11 @@ class FeatureEngineering:
         number_of_rows = len(training_rows_final)
         features = np.zeros((number_of_rows,), dtype=s.FEATURES_TYPES)
 
-        all_args_kwargs = [([kind, title, truth_title, target], {'compress': True})
+        all_args_kwargs = [([kind, title, truth_title, target], {})
                            for kind, title, truth_title, target in training_rows_final]
         del training_rows_final
         for index, features_row in enumerate(run_in_multi_processing_mode(self.construct_features, all_args_kwargs)):
-            features[index] = pickle.loads(zlib.decompress(features_row))
+            features[index] = features_row
         del all_args_kwargs
 
         evaluation_indexes = self._get_evaluation_indexes(features)
@@ -217,15 +217,6 @@ class FeatureEngineering:
 
         train[c.COLUMN_TARGET] = s.DISABLE_TARGET_VALUE
         evaluation[c.COLUMN_TARGET] = s.DISABLE_TARGET_VALUE
-
-        with open(s.TRAIN_OUTPUT_FILE, 'wb') as fl:
-            pickle.dump(train, fl)
-        with open(s.TRAIN_TARGET_OUTPUT_FILE, 'wb') as fl:
-            pickle.dump(train_target, fl)
-        with open(s.EVALUATION_OUTPUT_FILE, 'wb') as fl:
-            pickle.dump(evaluation, fl)
-        with open(s.EVALUATION_TARGET_OUTPUT_FILE, 'wb') as fl:
-            pickle.dump(evaluation_target, fl)
 
         return (
             train,

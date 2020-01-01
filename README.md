@@ -26,18 +26,15 @@ using a combination of Machine Learning and NLP techniques.<br/><br/>
 
 Run the following cli's in order:
 
-#### `make prepare-data-for-features-generation`
+#### `make pre-process-data`
 Alias of `prepare_data_for_features_generations` in [cli.py](./doppelspeller/cli.py)
 * Prepares training data for a `OneVsRestClassifier`
 * Each "positive" match is trained along with the nearest "n" matches that do not match with the title
 
-#### `make generate-train-and-evaluation-data-sets`
-Alias of `generate_train_and_evaluation_data_sets` in [cli.py](./doppelspeller/cli.py)
-* Generates `train` and `evaluation` data sets for the `train-model` cli
-* Main features generation method: `construct_features` (in [feature_engineering.py](./doppelspeller/feature_engineering.py))
-
 #### `make train-model`
 Alias of `train_model` in [cli.py](./doppelspeller/cli.py)
+* Generates `train` and `evaluation` data sets for the `train-model` cli
+* Main features generation method: `construct_features` (in [feature_engineering.py](./doppelspeller/feature_engineering.py))
 * XGBoost training output: `train-auc:1	evaluation-auc:0.999893	train-custom-error:5	evaluation-custom-error:178`
 * See the definition of `custom_error` in [train.py](./doppelspeller/train.py)
     - Also, the custom objective function `weighted_log_loss`

@@ -15,7 +15,7 @@ class TestCommon(TestCase):
 
     def test_transform_title(self):
         title = '''LKJblksd skjasl dfkjf &* 8*&&&8 GGdjsdkj--sdsd-"sdi..//' d'  k   bkjh77_asda33'''
-        transformed = transform_title(title, True)
+        transformed = transform_title(title)
         return self.assertEqual(transformed, 'lkjblksd skjasl dfkjf 88 ggdjsdkj sdsd sdi d k bkjh77asda33')
 
     def test_get_ground_truth_words_counter(self):

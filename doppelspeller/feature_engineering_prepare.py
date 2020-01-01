@@ -1,11 +1,10 @@
 import random
 import logging
 import math
-import _pickle as pickle
 
 import doppelspeller.settings as s
 import doppelspeller.constants as c
-from doppelspeller.match_maker import MatchMaker
+from doppelspeller.common import load_processed_train_data
 
 
 LOGGER = logging.getLogger(__name__)
@@ -21,40 +20,30 @@ KEYBOARD_CARTESIAN = {
 }
 
 
-def prepare_data_for_features_generation():
-    LOGGER.info('Loading LSH forest!')
+def get_closest_matches_per_training_row():
+    processed_data = load_processed_train_data()
 
-    encoding = MatchMaker(c.DATA_TYPE_TRAIN)
-    encoding.process()
+    train_data = processed_data[c.DATA_TYPE_TRAIN]
+    closest_matches = processed_data[c.DATA_TYPE_NEAREST_TRAIN]
 
-    train_data = encoding.data
-    closest_matches = encoding.closest_matches
-    train_length = len(train_data)
-    similar_titles = {s.TRAIN_NOT_FOUND_VALUE: {}}
-
+    closest_matches_per_training_row = {s.TRAIN_NOT_FOUND_VALUE: {}}
     for row, title_id in enumerate(train_data[c.COLUMN_TITLE_ID]):
 
-        matches = [str(x) for x in closest_matches[row]]
+        matches = [x for x in closest_matches[row]]
 
         if title_id == s.TRAIN_NOT_FOUND_VALUE:
-            similar_titles[title_id][row] = matches
+            closest_matches_per_training_row[title_id][row] = matches
             continue
         else:
-            similar_titles[title_id] = matches
+            closest_matches_per_training_row[title_id] = matches
 
         if title_id not in matches:
-            if len(similar_titles[title_id]) == s.TOP_N_RESULTS_TO_FIND_FOR_TRAINING:
-                similar_titles[title_id].pop()
+            if len(closest_matches_per_training_row[title_id]) == s.TOP_N_RESULTS_TO_FIND_FOR_TRAINING:
+                closest_matches_per_training_row[title_id].pop()
 
-            similar_titles[title_id].append(title_id)
+            closest_matches_per_training_row[title_id].append(title_id)
 
-        if not ((row+1) % 10000):
-            LOGGER.info(f'Processed {row+1} of {train_length}...!')
-
-    with open(s.NEAREST_TITLES_TRAIN_FILE, 'wb') as fl:
-        pickle.dump(similar_titles, fl)
-
-    return s.SIMILAR_TITLES_FILE
+    return closest_matches_per_training_row
 
 
 def euclidean_distance(a, b):

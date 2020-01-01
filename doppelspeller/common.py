@@ -2,13 +2,13 @@ import re
 import time
 import logging
 import math
+import _pickle as pickle
 from collections import Counter
 from concurrent.futures import ProcessPoolExecutor
 
 import psutil
 import unicodedata
 import pandas as pd
-import numpy as np
 from datasketch import MinHash
 
 import doppelspeller.constants as c
@@ -21,91 +21,91 @@ SUBSTITUTE_REGEX = re.compile(r' +')
 KEEP_REGEX = re.compile(r'[a-zA-Z0-9\s]')
 
 
-def transform_title(title, trim_large_titles):
+def transform_title(title):
     # Remove accents
     text = unicodedata.normalize('NFD', title)
     text = text.encode('ascii', 'ignore').decode('utf-8').lower().replace('-', ' ')
     text = ''.join(KEEP_REGEX.findall(text))
     # Extract only alphanumeric characters / convert to lower case
-    text = SUBSTITUTE_REGEX.sub(' ', text)
-    if trim_large_titles:
-        max_allowed = np.iinfo(s.NUMBER_OF_CHARACTERS_DATA_TYPE).max + 1
-        if len(text) > max_allowed:
-            LOGGER.warning(
-                'Titles greater than length 256 are not allowed. Trimming the title!\n'
-                'This is because of the data types set in FEATURES_TYPES (settings.py: NUMBER_OF_CHARACTERS_DATA_TYPE).'
-            )
-            text = text[:256]
+    text = SUBSTITUTE_REGEX.sub(' ', text).strip()
+    number_of_characters = len(text)
+    text = text[: s.MAX_CHARACTERS_ALLOWED_IN_THE_TITLE].strip()
 
-    return text.strip()
+    if number_of_characters < s.N_GRAMS:
+        LOGGER.warning(
+            f"Titles less than length {s.N_GRAMS} found, after transforming the title. Pre-pending 0's!\n"
+        )
+        return text.rjust(s.N_GRAMS, '0')
+
+    elif number_of_characters > s.MAX_CHARACTERS_ALLOWED_IN_THE_TITLE:
+        LOGGER.warning(
+            'Titles greater than length 256 are not allowed. Trimming the title!\n'
+            'This is because of the data types set in FEATURES_TYPES (settings.py: NUMBER_OF_CHARACTERS_DATA_TYPE).'
+        )
+
+    return text
 
 
-def read_and_transform_input_csv(input_file, input_file_delimiter, file_columns_mapping, trim_large_titles):
+def read_and_transform_input_csv(input_file, input_file_delimiter, file_columns_mapping):
     data_read = pd.read_csv(input_file, delimiter=input_file_delimiter)
 
     data = pd.DataFrame(index=range(len(data_read)))
-    for column, mapped in file_columns_mapping.items():
-        data.loc[:, column] = list(data_read.loc[:, mapped].astype(str))
+    for column, (column_source_file, column_type) in file_columns_mapping:
+        data.loc[:, column] = list(data_read.loc[:, column_source_file].astype(column_type))
 
     data.loc[:, c.COLUMN_TRANSFORMED_TITLE] = data.loc[:, c.COLUMN_TITLE].apply(
-        lambda x: transform_title(x, trim_large_titles))
+        lambda x: transform_title(x))
     data.loc[:, c.COLUMN_WORDS] = data.loc[:, c.COLUMN_TRANSFORMED_TITLE].str.split(' ')
     data.loc[:, c.COLUMN_NUMBER_OF_WORDS] = data.loc[:, c.COLUMN_WORDS].str.len()
     data.loc[:, c.COLUMN_N_GRAMS] = data.loc[:, c.COLUMN_TRANSFORMED_TITLE].apply(
         lambda x: get_n_grams(x, s.N_GRAMS)
     )
-    invalid_rows = data.loc[data[c.COLUMN_TRANSFORMED_TITLE].str.len() < s.N_GRAMS, :]
-    if not invalid_rows.empty:
-        LOGGER.warning(
-            f'Titles less than length {s.N_GRAMS} found, after transforming the title. Removing those rows!\n'
-        )
-        data = data.loc[~data.index.isin(invalid_rows.index), :].copy(deep=True).reset_index(drop=True)
 
     return data
 
 
-def get_ground_truth(trim_large_titles=True):
+def get_ground_truth():
     LOGGER.info(f'Reading and transforming the ground truth data!')
 
-    required_columns_in_mapping = [c.COLUMN_TITLE, c.COLUMN_TITLE_ID]
-    if sorted(s.GROUND_TRUTH_FILE_COLUMNS_MAPPING.keys()) != required_columns_in_mapping:
+    required_columns_in_mapping = [c.COLUMN_TITLE_ID, c.COLUMN_TITLE]
+    if [x[0] for x in s.GROUND_TRUTH_FILE_COLUMNS_MAPPING] != required_columns_in_mapping:
         raise Exception('GROUND_TRUTH_FILE_COLUMNS_MAPPING in settings.py should contain the following keys:\n'
                         f'{required_columns_in_mapping}')
 
     ground_truth = read_and_transform_input_csv(
-        s.GROUND_TRUTH_FILE, s.GROUND_TRUTH_FILE_DELIMITER, s.GROUND_TRUTH_FILE_COLUMNS_MAPPING, trim_large_titles)
+        s.GROUND_TRUTH_FILE, s.GROUND_TRUTH_FILE_DELIMITER, s.GROUND_TRUTH_FILE_COLUMNS_MAPPING)
 
     LOGGER.info(f'Read {ground_truth.shape[0]} rows from the ground truth data input!')
 
     return ground_truth
 
 
-def get_train_data(trim_large_titles=True):
+def get_train_data():
     LOGGER.info(f'Reading and transforming the train data!')
 
-    required_columns_in_mapping = [c.COLUMN_TITLE, c.COLUMN_TITLE_ID]
-    if sorted(s.TRAIN_FILE_COLUMNS_MAPPING.keys()) != required_columns_in_mapping:
+    required_columns_in_mapping = [c.COLUMN_TRAIN_INDEX, c.COLUMN_TITLE, c.COLUMN_TITLE_ID]
+    if [x[0] for x in s.TRAIN_FILE_COLUMNS_MAPPING] != required_columns_in_mapping:
         raise Exception('TRAIN_FILE_COLUMNS_MAPPING in settings.py should contain the following keys:\n'
                         f'{required_columns_in_mapping}')
 
     train_data = read_and_transform_input_csv(
-        s.TRAIN_FILE, s.TRAIN_FILE_DELIMITER, s.TRAIN_FILE_COLUMNS_MAPPING, trim_large_titles)
+        s.TRAIN_FILE, s.TRAIN_FILE_DELIMITER, s.TRAIN_FILE_COLUMNS_MAPPING)
 
     LOGGER.info(f'Read {train_data.shape[0]} rows from the train data input!')
 
     return train_data
 
 
-def get_test_data(trim_large_titles=True):
+def get_test_data():
     LOGGER.info(f'Reading and transforming the test data!')
 
-    required_columns_in_mapping = [c.COLUMN_TITLE]
-    if sorted(s.TEST_FILE_COLUMNS_MAPPING.keys()) != required_columns_in_mapping:
+    required_columns_in_mapping = [c.COLUMN_TEST_INDEX, c.COLUMN_TITLE]
+    if [x[0] for x in s.TEST_FILE_COLUMNS_MAPPING] != required_columns_in_mapping:
         raise Exception('TEST_FILE_COLUMNS_MAPPING in settings.py should contain the following keys:\n'
                         f'{required_columns_in_mapping}')
 
     test_data = read_and_transform_input_csv(
-        s.TEST_FILE, s.TEST_FILE_DELIMITER, s.TEST_FILE_COLUMNS_MAPPING, trim_large_titles)
+        s.TEST_FILE, s.TEST_FILE_DELIMITER, s.TEST_FILE_COLUMNS_MAPPING)
 
     LOGGER.info(f'Read {test_data.shape[0]} rows from the test data input!')
 
@@ -188,3 +188,19 @@ def run_in_multi_processing_mode(func, all_args_kwargs):
         del threads
 
     return result
+
+
+def load_processed_train_data():
+    try:
+        with open(s.PRE_REQUISITE_TRAIN_DATA_FILE, 'rb') as fl:
+            return pickle.load(fl)
+    except FileNotFoundError:
+        LOGGER.warning(f'File ({s.PRE_REQUISITE_TRAIN_DATA_FILE}) not found. Please run the "pre-process-data" cli!')
+
+
+def load_processed_test_data():
+    try:
+        with open(s.PRE_REQUISITE_TEST_DATA_FILE, 'rb') as fl:
+            return pickle.load(fl)
+    except FileNotFoundError:
+        LOGGER.warning(f'File ({s.PRE_REQUISITE_TEST_DATA_FILE}) not found. Please run the "pre-process-data" cli!')

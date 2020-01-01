@@ -6,21 +6,11 @@ import numpy as np
 from scipy.sparse import lil_matrix
 
 import doppelspeller.constants as c
-import doppelspeller.settings as s
 from doppelspeller import njit, List
-from doppelspeller.common import get_n_grams_counter, get_ground_truth, get_train_data, get_test_data
+from doppelspeller.common import get_n_grams_counter
 
 NP_ACTUAL_ERROR_CONFIG = np.geterr()
 ENCODING_FLOAT_TYPE = np.float32
-DATA_TYPE_MAPPING = {
-    c.DATA_TYPE_TRAIN: get_train_data,
-    c.DATA_TYPE_TEST: get_test_data,
-}
-NEAREST_N_MAPPING = {
-    c.DATA_TYPE_TRAIN: s.TOP_N_RESULTS_TO_FIND_FOR_TRAINING,
-    c.DATA_TYPE_TEST: s.TOP_N_RESULTS_TO_FIND_FOR_PREDICTING,
-}
-
 
 LOGGER = logging.getLogger(__name__)
 
@@ -40,26 +30,23 @@ def fast_jaccard(number_of_truth_titles, max_intersection_possible, non_zero_col
 
 
 class MatchMaker:
-    data = None
-    truth_data = None
-    n_grams_counter = None
-    n_grams_counter_truth = None
-    number_of_truth_titles = None
-    idf_s_mapping = None
-    n_grams_decoding = None
-    n_grams_encoding = None
-    matrix = None
-    matrix_truth = None
-    sums_matrix_truth = None
-    closest_matches = []
-    matrix_truth_non_zero_columns_and_values = List()
-    matrix_non_zero_columns = List()
+    def __init__(self, data, truth_data, top_n):
+        self.data = data
+        self.truth_data = truth_data
+        self.top_n = top_n
 
-    def __init__(self, data_type, approximate=False):
-        self.data_type = data_type
-        self.approximate = approximate
-
-        self.top_n = NEAREST_N_MAPPING[self.data_type]
+        self.n_grams_counter = None
+        self.n_grams_counter_truth = None
+        self.number_of_truth_titles = None
+        self.idf_s_mapping = None
+        self.n_grams_decoding = None
+        self.n_grams_encoding = None
+        self.matrix = None
+        self.matrix_truth = None
+        self.sums_matrix_truth = None
+        self.closest_matches = []
+        self.matrix_truth_non_zero_columns_and_values = List()
+        self.matrix_non_zero_columns = List()
 
     def _idf(self, word):
         """
@@ -102,23 +89,11 @@ class MatchMaker:
         return np.take_along_axis(arg_partition, np.take_along_axis(array, arg_partition, axis).argsort(axis), axis)
 
     def _get_top_n_matches(self, modified_jaccard):
-        if self.approximate:
-            modified_jaccard = np.array(modified_jaccard, dtype=np.float16)
-
-        # top_matches = modified_jaccard.argpartition(range(self.top_n))[:self.top_n]
-        # top_matches = modified_jaccard.argsort()[:self.top_n]
         top_matches = self._top_k_hybrid(modified_jaccard, self.top_n)
         return np.array(self.truth_data.loc[top_matches, c.COLUMN_TITLE_ID].values, dtype=np.uint32)
 
     def _find_matches(self):
         np.seterr(divide='ignore', invalid='ignore')
-
-        # Delete all unwanted variables
-        del self.n_grams_counter
-        del self.n_grams_counter_truth
-        del self.n_grams_encoding
-        del self.matrix
-        del self.matrix_truth
 
         iteration_start = time.time()
         total = len(self.matrix_non_zero_columns)
@@ -140,8 +115,6 @@ class MatchMaker:
         _ = np.seterr(**NP_ACTUAL_ERROR_CONFIG)
 
     def process(self):
-        self.data = DATA_TYPE_MAPPING[self.data_type](trim_large_titles=False)
-        self.truth_data = get_ground_truth(trim_large_titles=False)
         self.number_of_truth_titles = len(self.truth_data)
 
         self.n_grams_counter = get_n_grams_counter(self.data)
