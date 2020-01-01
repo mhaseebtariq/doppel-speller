@@ -27,7 +27,7 @@ using a combination of Machine Learning and NLP techniques.<br/><br/>
 Run the following cli's in order:
 
 #### `make pre-process-data`
-Alias of `prepare_data_for_features_generations` in [cli.py](./doppelspeller/cli.py)
+Alias of `pre_process_data` in [cli.py](./doppelspeller/cli.py)
 * Prepares training data for a `OneVsRestClassifier`
 * Each "positive" match is trained along with the nearest "n" matches that do not match with the title
 
