@@ -28,8 +28,8 @@ Run the following cli's in order:
 
 #### `make pre-process-data`
 Alias of `pre_process_data` in [cli.py](./doppelspeller/cli.py)
-* Prepares training data for a `OneVsRestClassifier`
-* Each "positive" match is trained along with the nearest "n" matches that do not match with the title
+* Prepares training data for a `OneVsRest[*]Classifier` - "rest" being the nearest "n" (based on the Jaccard distance) matches
+* Each "positive" match is trained along with the nearest n matches, that do not match with the title
 
 #### `make train-model`
 Alias of `train_model` in [cli.py](./doppelspeller/cli.py)
