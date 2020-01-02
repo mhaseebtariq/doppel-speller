@@ -48,14 +48,14 @@ class MatchMaker:
         self.matrix_truth_non_zero_columns_and_values = List()
         self.matrix_non_zero_columns = List()
 
-    def _idf(self, word):
+    def _idf_n_gram(self, n_gram):
         """
         Inverse document frequency
         """
-        return math.log(self.number_of_truth_titles / self.n_grams_counter_truth[word])
+        return math.log(self.number_of_truth_titles / self.n_grams_counter_truth[n_gram])
 
     def _populate_idf_s_mapping(self):
-        self.idf_s_mapping = {key: self._idf(key) for key in self.n_grams_counter_truth.keys()}
+        self.idf_s_mapping = {key: self._idf_n_gram(key) for key in self.n_grams_counter_truth.keys()}
         self.max_idf_value = max(self.idf_s_mapping.values())
 
     def _populate_encoding_mappings(self):

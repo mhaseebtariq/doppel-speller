@@ -1,12 +1,9 @@
 import re
-import time
 import logging
 import math
 import _pickle as pickle
 from collections import Counter
-from concurrent.futures import ProcessPoolExecutor
 
-import psutil
 import unicodedata
 import pandas as pd
 from datasketch import MinHash
@@ -126,7 +123,7 @@ def get_n_grams(title, n_grams):
     return set([title[i:i+n_grams] for i in range(len(title)) if len(title[i:i+n_grams]) == n_grams])
 
 
-def idf(word, words_counter, number_of_titles):
+def idf_word(word, words_counter, number_of_titles):
     """
     Inverse document frequency
     """
@@ -137,57 +134,6 @@ def get_min_hash(title, num_perm):
     min_hash = MinHash(num_perm=num_perm)
     _ = [min_hash.update(str(x).encode('utf8')) for x in title]
     return min_hash
-
-
-def wait_for_multiprocessing_threads(threads):
-    LOGGER.info('Waiting for the multi processing threads to complete!')
-
-    all_threads_count = len(threads)
-    done_threads = [x for x in threads if x.done()]
-    done_threads_count = len(done_threads)
-    while done_threads_count != all_threads_count:
-        time.sleep(5)
-        LOGGER.info(f'Processed {done_threads_count} out of {all_threads_count}...')
-
-        done_threads = [x for x in threads if x.done()]
-        done_threads_count = len(done_threads)
-
-        exception = threads[0].exception()
-        if exception:
-            for thread in threads:
-                thread.cancel()
-            raise exception
-
-    LOGGER.info('Multi processing threads completed!')
-
-
-def get_number_of_cpu_workers():
-    count = psutil.cpu_count(logical=False) - 1
-    if count == 0:
-        LOGGER.warning(
-            'Running the multiprocessing code with max_workers=1 because the machine is single core. '
-            'This can slow things up!'
-        )
-    return count or 1
-
-
-def run_in_multi_processing_mode(func, all_args_kwargs):
-    number_of_workers = get_number_of_cpu_workers()
-
-    if number_of_workers == 1:
-        LOGGER.warning('Starting single threaded process. Use multi core machine to speed this up!')
-        result = [func(*args, **kwargs) for args, kwargs in all_args_kwargs]
-    else:
-        LOGGER.info('Starting multi processing threads!')
-        executor = ProcessPoolExecutor(max_workers=number_of_workers)
-        threads = [executor.submit(func, *args, **kwargs) for args, kwargs in all_args_kwargs]
-
-        wait_for_multiprocessing_threads(threads)
-
-        result = [thread.result() for thread in threads]
-        del threads
-
-    return result
 
 
 def load_processed_train_data():

@@ -3,7 +3,7 @@ from unittest import TestCase
 import pandas as pd
 
 import doppelspeller.constants as c
-from doppelspeller.common import transform_title, get_words_counter, idf
+from doppelspeller.common import transform_title, get_words_counter, idf_word
 
 
 class TestCommon(TestCase):
@@ -22,7 +22,7 @@ class TestCommon(TestCase):
         response = dict(get_words_counter(self.ground_truth))
         self.assertDictEqual(response, {'first': 2, 'second': 1, 'third': 1, 'fifth': 1})
 
-    def test_idf(self):
+    def test_idf_word(self):
         words_counter = get_words_counter(self.ground_truth)
-        response = idf('first', words_counter, len(self.ground_truth))
+        response = idf_word('first', words_counter, len(self.ground_truth))
         self.assertEqual(round(response, 5), 0.40547)

@@ -5,10 +5,10 @@ module_name = 'doppelspeller'
 try:
     from numba import njit
     from numba.typed import List
+
+    from doppelspeller.settings import DISABLE_NUMBA  # noqa
 except ImportError:
     DISABLE_NUMBA = True
-
-from doppelspeller.settings import DISABLE_NUMBA  # noqa
 
 
 def dummy_njit(*args, **kwargs):

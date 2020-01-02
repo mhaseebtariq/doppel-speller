@@ -6,7 +6,7 @@ import numpy as np
 import xgboost as xgb
 
 import doppelspeller.settings as s
-from doppelspeller.common import get_number_of_cpu_workers
+import doppelspeller.constants as c
 from doppelspeller.feature_engineering import FeatureEngineering
 
 
@@ -51,7 +51,7 @@ def get_xgb_feats_importance(model):
 def train_model():
     LOGGER.info('Generating train and evaluation data-sets!')
 
-    features = FeatureEngineering()
+    features = FeatureEngineering(c.DATA_TYPE_TRAIN)
     train, train_target, evaluation, evaluation_target = features.generate_train_and_evaluation_data_sets()
 
     train_set = np.array(train.tolist(), dtype=np.float16)
@@ -71,7 +71,7 @@ def train_model():
         'params': {
             'max_depth': 5,
             'eta': 0.1,
-            'nthread': get_number_of_cpu_workers(),
+            'nthread': 4,  # TODO: Use dynamic settings
             'min_child_weight': 1,
             'eval_metric': 'auc',
             'objective': 'reg:logistic',

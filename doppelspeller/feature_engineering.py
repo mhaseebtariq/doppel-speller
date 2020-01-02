@@ -1,50 +1,51 @@
 import logging
-import sys
+from collections import namedtuple
 
-import psutil
 import numpy as np
-from fuzzywuzzy import fuzz
+from Levenshtein import ratio
 
 import doppelspeller.settings as s
 import doppelspeller.constants as c
 from doppelspeller.feature_engineering_prepare import get_closest_matches_per_training_row, generate_misspelled_name
-from doppelspeller.common import (get_words_counter, load_processed_train_data, load_processed_test_data,
-                                  idf, run_in_multi_processing_mode)
+from doppelspeller.common import get_words_counter, load_processed_train_data, load_processed_test_data, idf_word
 
 
 LOGGER = logging.getLogger(__name__)
 
-# TODO: multiprocessing module can not pickle self.<attributes>, therefore, defining global variables!
-# Try to avoid declaring these variables, maybe use pathos?
-GROUND_TRUTH, TRAIN_DATA, TEST_DATA, WORDS_COUNTER, NUMBER_OF_TITLES = None, None, None, None, None
+DataMapper = namedtuple('DataMapper', ['loader', 'nearest_matches_key'])
+DATA_TYPE_MAPPING = {
+    c.DATA_TYPE_TRAIN: DataMapper(loader=load_processed_train_data, nearest_matches_key=c.DATA_TYPE_NEAREST_TRAIN),
+    c.DATA_TYPE_TEST: DataMapper(loader=load_processed_test_data, nearest_matches_key=c.DATA_TYPE_NEAREST_TEST),
+}
+
+
+def levenshtein_ratio(text, text_to_match):
+    return int(round(ratio(text, text_to_match) * 100))
+
+
+def levenshtein_token_sort_ratio(text, text_to_match):
+    text, text_to_match = ' '.join(sorted(text.split(' '))), ' '.join(sorted(text_to_match.split(' ')))
+    return levenshtein_ratio(text, text_to_match)
 
 
 class FeatureEngineering:
-    @staticmethod
-    def populate_required_data(test_data=False):
-        global GROUND_TRUTH, TRAIN_DATA, TEST_DATA, WORDS_COUNTER, NUMBER_OF_TITLES
+    def __init__(self, data_type):
+        self.data_mapper = DATA_TYPE_MAPPING[data_type]
+        self.processed_data = self.data_mapper.loader()
 
-        if test_data:
-            processed_data = load_processed_test_data()
-            TEST_DATA = processed_data[c.DATA_TYPE_TEST]
-        else:
-            processed_data = load_processed_train_data()
-            TRAIN_DATA = processed_data[c.DATA_TYPE_TRAIN]
+        self.data = self.processed_data[data_type]
+        self.truth_data = self.processed_data[c.DATA_TYPE_TRUTH]
+        self.nearest_matches = self.processed_data[self.data_mapper.nearest_matches_key]
 
-        GROUND_TRUTH = processed_data[c.DATA_TYPE_TRUTH]
+        self.words_counter = get_words_counter(self.truth_data)
+        self.number_of_titles = len(self.truth_data)
 
-        WORDS_COUNTER = get_words_counter(GROUND_TRUTH)
-        NUMBER_OF_TITLES = len(GROUND_TRUTH)
-
-        return GROUND_TRUTH, TRAIN_DATA, TEST_DATA, WORDS_COUNTER, NUMBER_OF_TITLES
-
-    @staticmethod
-    def _generate_dummy_train_data():
+    def _generate_dummy_train_data(self):
         LOGGER.info('Generating dummy train data!')
 
         # Filtering short titles
-        generated_training_data = GROUND_TRUTH.loc[
-            GROUND_TRUTH[c.COLUMN_TRANSFORMED_TITLE].str.len() > 9, :].copy(deep=True)
+        generated_training_data = self.truth_data.loc[
+            self.truth_data[c.COLUMN_TRANSFORMED_TITLE].str.len() > 9, :].copy(deep=True)
 
         generated_training_data.loc[:, c.COLUMN_GENERATED_MISSPELLED_TITLE] = \
             generated_training_data.loc[:, c.COLUMN_TRANSFORMED_TITLE].apply(
@@ -57,16 +58,15 @@ class FeatureEngineering:
         return generated_training_data.reset_index()
 
     def _prepare_training_input_data(self):
-        _ = self.populate_required_data()
         generated_training_data = self._generate_dummy_train_data()
         training_data_input = get_closest_matches_per_training_row()
 
         training_data_negative = training_data_input.pop(s.TRAIN_NOT_FOUND_VALUE)
 
-        ground_truth_mapping = GROUND_TRUTH.set_index(c.COLUMN_TITLE_ID).copy(deep=True)
+        ground_truth_mapping = self.truth_data.set_index(c.COLUMN_TITLE_ID).copy(deep=True)
         ground_truth_mapping = ground_truth_mapping.to_dict()[c.COLUMN_TRANSFORMED_TITLE]
 
-        train_data = TRAIN_DATA.copy(deep=True)
+        train_data = self.data.copy(deep=True)
         train_data.loc[:, c.COLUMN_TRAIN_INDEX] = list(train_data.index)
         train_data = train_data.set_index(c.COLUMN_TITLE_ID)
         del train_data[c.COLUMN_TITLE]
@@ -122,8 +122,7 @@ class FeatureEngineering:
         return np.array(list(
             set(list(evaluation_generated_index) + list(evaluation_negative_index) + list(evaluation_positive_index))))
 
-    @staticmethod
-    def construct_features(kind, title, truth_title, target, n=s.NUMBER_OF_WORDS_FEATURES):
+    def construct_features(self, kind, title, truth_title, target, n=s.NUMBER_OF_WORDS_FEATURES):
         """
         Constructs a feature row per "title" and "title_truth" strings
         :param kind: "Kind" of feature row see -
@@ -131,7 +130,7 @@ class FeatureEngineering:
         :param title: Title to match
         :param truth_title: Title to match against
         :param target: True or False - whether the "title" and "title_truth" are a match or not
-        :param n: NUMBER_OF_WORDS_FEATURES to consider while defining idf related features (defined in settings.py)
+        :param n: NUMBER_OF_WORDS_FEATURES to consider while defining idf_word related features (defined in settings.py)
         :return: A tuple corresponding to FEATURES_TYPES (settings.py)
         """
         feature_row = [kind]
@@ -142,7 +141,7 @@ class FeatureEngineering:
         truth_words = truth_title.split(' ')
         title_number_of_words = len(title_words)
         truth_number_of_words = len(truth_words)
-        distance = fuzz.ratio(title, truth_title)
+        distance = levenshtein_ratio(title, truth_title)
 
         feature_row += [title_number_of_characters, truth_number_of_characters,
                         title_number_of_words, truth_number_of_words, distance]
@@ -155,21 +154,21 @@ class FeatureEngineering:
         truth_words = truth_words[:n]
 
         word_lengths = [len(x) for x in truth_words]
-        idf_s = [idf(x, WORDS_COUNTER, NUMBER_OF_TITLES) for x in truth_words]
+        idf_s = [idf_word(x, self.words_counter, self.number_of_titles) for x in truth_words]
         idf_s_ranks = [int(x) for x in np.argsort(idf_s).argsort() + 1]
 
         best_scores = []
         constructed_title = []
         for length_truth_word, truth_word in zip(word_lengths, truth_words):
             possible_words = list({title_to_match[i:i + length_truth_word] for i in range_title_to_match})
-            ratios = [fuzz.ratio(truth_word, i) for i in possible_words]
+            ratios = [levenshtein_ratio(truth_word, i) for i in possible_words]
             arg_max = np.argmax(ratios)
             best_score = ratios[arg_max]
             best_score_match = possible_words[arg_max]
             constructed_title.append(best_score_match)
             best_scores.append(best_score)
 
-        reconstructed_score = fuzz.ratio(' '.join(constructed_title), ' '.join(truth_words))
+        reconstructed_score = levenshtein_ratio(' '.join(constructed_title), ' '.join(truth_words))
 
         result = tuple(
             feature_row +
@@ -185,24 +184,15 @@ class FeatureEngineering:
     def generate_train_and_evaluation_data_sets(self):
         training_rows_final = self._prepare_training_input_data()
 
-        memory_required = sys.getsizeof(np.zeros((1,), dtype=s.FEATURES_TYPES)) * len(training_rows_final)
-        memory_required = round(memory_required / 1024 / 1024 / 1024, 2)
-        memory_available = round(psutil.virtual_memory().available / 1024 / 1024 / 1024, 2)
-        if memory_available < memory_required:
-            raise Exception(f'memory_available ({memory_available}GB) < memory_required ({memory_required}GB) '
-                            'to build the features matrix! Convert the array using https://www.h5py.org/')
-
         LOGGER.info('Constructing features!')
 
         number_of_rows = len(training_rows_final)
         features = np.zeros((number_of_rows,), dtype=s.FEATURES_TYPES)
 
-        all_args_kwargs = [([kind, title, truth_title, target], {})
-                           for kind, title, truth_title, target in training_rows_final]
-        del training_rows_final
-        for index, features_row in enumerate(run_in_multi_processing_mode(self.construct_features, all_args_kwargs)):
-            features[index] = features_row
-        del all_args_kwargs
+        for index, (kind, title, truth_title, target) in enumerate(training_rows_final):
+            if not((index+1) % 10000):
+                print(f'Processed {index+1} of {number_of_rows}!')
+            features[index] = self.construct_features(kind, title, truth_title, target)
 
         evaluation_indexes = self._get_evaluation_indexes(features)
 
