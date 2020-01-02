@@ -124,6 +124,7 @@ class FeatureEngineering:
 
     def construct_features(self, kind, title, truth_title, target, n=s.NUMBER_OF_WORDS_FEATURES):
         """
+        TODO: Optimize this method!
         Constructs a feature row per "title" and "title_truth" strings
         :param kind: "Kind" of feature row see -
             TRAINING_KIND_GENERATED, TRAINING_KIND_NEGATIVE, TRAINING_KIND_POSITIVE (in constants.py)
