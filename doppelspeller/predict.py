@@ -229,17 +229,17 @@ class Prediction:
 
         return best_match_id, best_match, best_match_prediction
 
-    def _close_matches_ratio(self):
+    def _find_close_matches_ratio(self):
         return self._find_close_matches(False)
 
-    def _close_matches_token_sort_ratio(self):
+    def _find_close_matches_token_sort_ratio(self):
         return self._find_close_matches(True)
 
     def process(self):
         steps = [
             self._find_exact_matches,
-            self._close_matches_ratio,
-            self._close_matches_token_sort_ratio,
+            self._find_close_matches_ratio,
+            self._find_close_matches_token_sort_ratio,
             self._find_matches_using_model
         ]
 
