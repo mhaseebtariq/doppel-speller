@@ -6,6 +6,7 @@ from collections import Counter
 
 import unicodedata
 import pandas as pd
+from Levenshtein import ratio
 from datasketch import MinHash
 
 import doppelspeller.constants as c
@@ -150,3 +151,12 @@ def load_processed_test_data():
             return pickle.load(fl)
     except FileNotFoundError:
         LOGGER.warning(f'File ({s.PRE_REQUISITE_TEST_DATA_FILE}) not found. Please run the "pre-process-data" cli!')
+
+
+def levenshtein_ratio(text, text_to_match):
+    return int(round(ratio(text, text_to_match) * 100))
+
+
+def levenshtein_token_sort_ratio(text, text_to_match):
+    text, text_to_match = ' '.join(sorted(text.split())), ' '.join(sorted(text_to_match.split()))
+    return levenshtein_ratio(text, text_to_match)

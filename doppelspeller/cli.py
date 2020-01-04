@@ -41,48 +41,6 @@ def stage_example_data_set_on_docker_container(**kwargs):
 
 @cli.command()
 @time_usage
-def pre_process_data(**kwargs):
-    """Prepare data sets!"""
-    import _pickle as pickle
-
-    import doppelspeller.settings as s
-    import doppelspeller.constants as c
-    from doppelspeller.common import get_ground_truth, get_train_data, get_test_data
-    from doppelspeller.match_maker import MatchMaker
-
-    ground_truth, train_data, test_data = get_ground_truth(), get_train_data(), get_test_data()
-
-    LOGGER.info(f'Finding nearest {s.TOP_N_RESULTS_TO_FIND_FOR_TRAINING} matches for "train" data!')
-    matcher_train = MatchMaker(train_data, ground_truth,
-                               s.TOP_N_RESULTS_TO_FIND_FOR_TRAINING)
-    matcher_train.process()
-    matches_train = matcher_train.closest_matches
-    del matcher_train
-
-    LOGGER.info(f'Finding nearest {s.TOP_N_RESULTS_TO_FIND_FOR_PREDICTING} matches for "test" data!')
-    matcher_test = MatchMaker(test_data, ground_truth, s.TOP_N_RESULTS_TO_FIND_FOR_PREDICTING)
-    matcher_test.process()
-    matches_test = matcher_test.closest_matches
-    del matcher_test
-
-    with open(s.PRE_REQUISITE_TRAIN_DATA_FILE, 'wb') as fl:
-        pickle.dump({
-            c.DATA_TYPE_TRUTH: ground_truth,
-            c.DATA_TYPE_TRAIN: train_data,
-            c.DATA_TYPE_NEAREST_TRAIN: matches_train
-        }, fl)
-    with open(s.PRE_REQUISITE_TEST_DATA_FILE, 'wb') as fl:
-        pickle.dump({
-            c.DATA_TYPE_TRUTH: ground_truth,
-            c.DATA_TYPE_TEST: test_data,
-            c.DATA_TYPE_NEAREST_TEST: matches_test,
-        }, fl)
-
-    return True
-
-
-@cli.command()
-@time_usage
 def train_model(**kwargs):
     """Train the model!"""
     from doppelspeller.train import train_model

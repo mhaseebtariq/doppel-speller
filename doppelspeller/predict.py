@@ -7,9 +7,9 @@ import xgboost as xgb
 
 import doppelspeller.settings as s
 import doppelspeller.constants as c
-from doppelspeller.common import load_processed_test_data, get_words_counter, transform_title
-from doppelspeller.feature_engineering import FeatureEngineering, levenshtein_token_sort_ratio
-
+from doppelspeller.common import load_processed_test_data, get_words_counter, transform_title, \
+    levenshtein_token_sort_ratio
+from doppelspeller.feature_engineering import FeatureEngineering
 
 LOGGER = logging.getLogger(__name__)
 

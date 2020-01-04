@@ -1,10 +1,11 @@
 import random
+import time
 import logging
 import math
 
 import doppelspeller.settings as s
 import doppelspeller.constants as c
-from doppelspeller.common import load_processed_train_data
+from doppelspeller.match_maker import MatchMaker
 
 
 LOGGER = logging.getLogger(__name__)
@@ -20,19 +21,20 @@ KEYBOARD_CARTESIAN = {
 }
 
 
-def get_closest_matches_per_training_row():
-    processed_data = load_processed_train_data()
+def get_closest_matches_per_training_row(train_data, truth_data):
+    match_maker = MatchMaker(train_data, truth_data, s.TOP_N_RESULTS_TO_FIND_FOR_TRAINING)
 
-    train_data = processed_data[c.DATA_TYPE_TRAIN]
-    closest_matches = processed_data[c.DATA_TYPE_NEAREST_TRAIN]
+    LOGGER.info('Preparing training features data!')
 
     closest_matches_per_training_row = {s.TRAIN_NOT_FOUND_VALUE: {}}
-    for row, title_id in enumerate(train_data[c.COLUMN_TITLE_ID]):
+    number_training_rows = len(train_data)
+    batch_time = time.time()
+    for row_number, title_id in enumerate(train_data[c.COLUMN_TITLE_ID]):
 
-        matches = [x for x in closest_matches[row]]
+        matches = match_maker.get_closest_matches(row_number)
 
         if title_id == s.TRAIN_NOT_FOUND_VALUE:
-            closest_matches_per_training_row[title_id][row] = matches
+            closest_matches_per_training_row[title_id][row_number] = matches
             continue
         else:
             closest_matches_per_training_row[title_id] = matches
@@ -42,6 +44,11 @@ def get_closest_matches_per_training_row():
                 closest_matches_per_training_row[title_id].pop()
 
             closest_matches_per_training_row[title_id].append(title_id)
+
+        if not(row_number % 5000):
+            elapsed = f'{round(time.time() - batch_time)} secs'
+            LOGGER.info(f'Processed {row_number} of {number_training_rows} [{elapsed}]!')
+            batch_time = time.time()
 
     return closest_matches_per_training_row
 

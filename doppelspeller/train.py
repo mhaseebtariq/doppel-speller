@@ -55,14 +55,13 @@ def train_model():
     train, train_target, evaluation, evaluation_target = features.generate_train_and_evaluation_data_sets()
 
     train_set = np.array(train.tolist(), dtype=np.float16)
-    features_names = list(train.dtype.names)
     del train
 
     evaluation_set = np.array(evaluation.tolist(), dtype=np.float16)
     del evaluation
 
-    d_train = xgb.DMatrix(train_set, label=train_target, feature_names=features_names)
-    d_evaluation = xgb.DMatrix(evaluation_set, label=evaluation_target, feature_names=features_names)
+    d_train = xgb.DMatrix(train_set, label=train_target)
+    d_evaluation = xgb.DMatrix(evaluation_set, label=evaluation_target)
 
     scale_pos_weight = sum(train_target == 0) / sum(train_target == 1)
 

@@ -1,44 +1,160 @@
 import logging
-from collections import namedtuple
+import math
 
+import numba
 import numpy as np
-from Levenshtein import ratio
 
 import doppelspeller.settings as s
 import doppelspeller.constants as c
 from doppelspeller.feature_engineering_prepare import get_closest_matches_per_training_row, generate_misspelled_name
-from doppelspeller.common import get_words_counter, load_processed_train_data, load_processed_test_data, idf_word
-
+from doppelspeller.common import get_ground_truth, get_train_data, get_test_data, get_words_counter
 
 LOGGER = logging.getLogger(__name__)
 
-DataMapper = namedtuple('DataMapper', ['loader', 'nearest_matches_key'])
 DATA_TYPE_MAPPING = {
-    c.DATA_TYPE_TRAIN: DataMapper(loader=load_processed_train_data, nearest_matches_key=c.DATA_TYPE_NEAREST_TRAIN),
-    c.DATA_TYPE_TEST: DataMapper(loader=load_processed_test_data, nearest_matches_key=c.DATA_TYPE_NEAREST_TEST),
+    c.DATA_TYPE_TRAIN: get_train_data,
+    c.DATA_TYPE_TEST: get_test_data,
 }
 
 
-def levenshtein_ratio(text, text_to_match):
-    return int(round(ratio(text, text_to_match) * 100))
+@numba.njit(numba.uint8(numba.uint8[:], numba.uint8[:]), fastmath=True)
+def fast_levenshtein(seq1, seq2):
+    length_x = seq1.shape[0]
+    length_y = seq2.shape[0]
+    total_length = length_x + length_y
+
+    if length_x > length_y:
+        length_x, length_y = length_y, length_x
+        seq1, seq2 = seq2, seq1
+
+    size_x = length_x + 1
+    size_y = length_y + 1
+
+    matrix = np.zeros((size_x, size_y), dtype=s.NUMBER_OF_CHARACTERS_DATA_TYPE)
+    for x in range(size_x):
+        matrix[x, 0] = x
+    for y in range(size_y):
+        matrix[0, y] = y
+
+    for x in range(1, size_x):
+        for y in range(1, size_y):
+            if seq1[x - 1] == seq2[y - 1]:
+                matrix[x, y] = min(
+                    matrix[x - 1, y] + 1,
+                    matrix[x - 1, y - 1],
+                    matrix[x, y - 1] + 1
+                )
+            else:
+                matrix[x, y] = min(
+                    matrix[x - 1, y] + 1,
+                    matrix[x - 1, y - 1] + 2,
+                    matrix[x, y - 1] + 1
+                )
+
+    return ((total_length - matrix[length_x, length_y]) / total_length) * 100
 
 
-def levenshtein_token_sort_ratio(text, text_to_match):
-    text, text_to_match = ' '.join(sorted(text.split())), ' '.join(sorted(text_to_match.split()))
-    return levenshtein_ratio(text, text_to_match)
+# 6 Basic + (4 * s.NUMBER_OF_WORDS_FEATURES) "words" related features
+FEATURES_COUNT = 6 + (4 * s.NUMBER_OF_WORDS_FEATURES)
+
+signature = [
+    (numba.uint8, numba.uint8,
+     numba.uint8[:], numba.uint8[:], numba.uint32[:],
+     numba.uint8, numba.uint32,
+     numba.uint8[:], numba.float32[:])
+]
+@numba.guvectorize(signature,
+                   '(),(),(l),(l),(m),(),(),(n)->(n)', fastmath=True, target='parallel')
+def construct_features(title_number_of_characters, truth_number_of_characters,
+                       title, title_truth, word_counter,
+                       space_code, number_of_truth_titles,
+                       dummy, response):
+
+    title = title[:title_number_of_characters]
+    title_truth = title_truth[:truth_number_of_characters]
+
+    title_number_of_words = title[title == space_code].shape[0] + 1
+    truth_number_of_words = title_truth[title_truth == space_code].shape[0] + 1
+    lev_ratio = fast_levenshtein(title, title_truth)
+
+    title_wo_spaces = title_truth[title_truth != space_code]
+
+    title_truth_w_extra_space = np.concatenate(
+        (title_truth, np.array([space_code], dtype=s.NUMBER_OF_CHARACTERS_DATA_TYPE)))
+
+    # "Truth" words features
+    space_indexes_truth_words = (title_truth_w_extra_space == space_code).nonzero()[0][:s.NUMBER_OF_WORDS_FEATURES]
+    reconstructed_title = np.array([space_code], dtype=s.NUMBER_OF_CHARACTERS_DATA_TYPE)
+    best_ratios = np.zeros((s.NUMBER_OF_WORDS_FEATURES,), dtype=s.ENCODING_FLOAT_TYPE)
+    word_lengths = np.zeros((s.NUMBER_OF_WORDS_FEATURES,), dtype=s.ENCODING_FLOAT_TYPE)
+    idf_s = np.zeros((s.NUMBER_OF_WORDS_FEATURES,), dtype=s.ENCODING_FLOAT_TYPE)
+
+    # Assigning nulls
+    best_ratios[:] = np.nan
+    word_lengths[:] = np.nan
+    idf_s[:] = np.nan
+
+    # Truth words loop
+    last_index = None
+    word_index = -1
+    for space_index in space_indexes_truth_words:
+        word_index += 1
+        if last_index is None:
+            truth_word = title_truth[:space_index]
+        else:
+            truth_word = title_truth[last_index:space_index]
+        last_index = space_index
+
+        # Possible words loop
+        length_truth_word = truth_word.shape[0]
+        best_ratio = 0
+        best_match = np.array([space_code], dtype=s.NUMBER_OF_CHARACTERS_DATA_TYPE)
+        for possible_index in range(title_wo_spaces.shape[0]):
+            possible_word = title_wo_spaces[possible_index:possible_index + length_truth_word]
+            if possible_word.shape[0] == 0:
+                break
+
+            possible_word_lev_ratio = fast_levenshtein(possible_word, truth_word)
+            if possible_word_lev_ratio > best_ratio:
+                best_ratio = int(possible_word_lev_ratio)
+                best_match = possible_word
+
+        best_ratios[word_index] = best_ratio
+        word_lengths[word_index] = truth_word.shape[0]
+        idf_s[word_index] = math.log(number_of_truth_titles / word_counter[word_index])
+        reconstructed_title = np.concatenate(
+            (reconstructed_title, best_match, np.array([space_code], dtype=s.NUMBER_OF_CHARACTERS_DATA_TYPE)))
+
+    # IDF Ranks
+    ranks_idf_s = idf_s * (s.NUMBER_OF_WORDS_FEATURES / np.nanmax(idf_s))
+
+    # Removing first and last space
+    reconstructed_lev_ratio = fast_levenshtein(reconstructed_title[1: reconstructed_title.shape[0] - 1], title_truth)
+
+    basic_features = np.array([
+        title_number_of_characters, truth_number_of_characters,
+        title_number_of_words, truth_number_of_words,
+        lev_ratio, reconstructed_lev_ratio], dtype=s.ENCODING_FLOAT_TYPE)
+
+    response[:] = np.concatenate((basic_features, best_ratios, word_lengths, idf_s, ranks_idf_s))
 
 
 class FeatureEngineering:
     def __init__(self, data_type):
-        self.data_mapper = DATA_TYPE_MAPPING[data_type]
-        self.processed_data = self.data_mapper.loader()
+        LOGGER.info(f'[{self.__class__.__name__}] Loading pre-requisite data!')
 
-        self.data = self.processed_data[data_type]
-        self.truth_data = self.processed_data[c.DATA_TYPE_TRUTH]
-        self.nearest_matches = self.processed_data[self.data_mapper.nearest_matches_key]
+        self.data = DATA_TYPE_MAPPING[data_type]()
+        self.truth_data = get_ground_truth()
 
         self.words_counter = get_words_counter(self.truth_data)
-        self.number_of_titles = len(self.truth_data)
+        self.number_of_truth_titles = len(self.truth_data)
+
+        self.allowed_characters = f'{s.R_FILL_CHARACTER} abcdefghijklmnopqrstuvwxyz0123456789'
+        self.encoding = {character: index for index, character in enumerate(self.allowed_characters)}
+        self.decoding = {value: key for key, value in self.encoding.items()}
+        self.space_code = self.encoding[' ']
+        if self.encoding[s.R_FILL_CHARACTER] != s.R_FILL_CHARACTER_ENCODING:
+            raise Exception('self.encoding[s.R_FILL_CHARACTER] != s.R_FILL_CHARACTER_ENCODING')
 
     def _generate_dummy_train_data(self):
         LOGGER.info('Generating dummy train data!')
@@ -59,7 +175,7 @@ class FeatureEngineering:
 
     def _prepare_training_input_data(self):
         generated_training_data = self._generate_dummy_train_data()
-        training_data_input = get_closest_matches_per_training_row()
+        training_data_input = get_closest_matches_per_training_row(self.data, self.truth_data)
 
         training_data_negative = training_data_input.pop(s.TRAIN_NOT_FOUND_VALUE)
 
@@ -101,16 +217,16 @@ class FeatureEngineering:
         return training_rows_negative + training_rows + training_rows_generated
 
     @staticmethod
-    def _get_evaluation_indexes(features):
-        number_of_rows = len(features)
+    def _get_evaluation_indexes(kind):
+        number_of_rows = len(kind)
 
         evaluation_generated_size = int(number_of_rows * s.EVALUATION_FRACTION_GENERATED_DATA)
         evaluation_negative_size = int(number_of_rows * s.EVALUATION_FRACTION_NEGATIVE_DATA)
         evaluation_positive_size = int(number_of_rows * s.EVALUATION_FRACTION_POSITIVE_DATA)
 
-        candidates_generated_index = (features[c.COLUMN_TRAIN_KIND] == c.TRAINING_KIND_GENERATED).nonzero()[0]
-        candidates_negative_index = (features[c.COLUMN_TRAIN_KIND] == c.TRAINING_KIND_NEGATIVE).nonzero()[0]
-        candidates_positive_index = (features[c.COLUMN_TRAIN_KIND] == c.TRAINING_KIND_POSITIVE).nonzero()[0]
+        candidates_generated_index = (kind == c.TRAINING_KIND_GENERATED).nonzero()[0]
+        candidates_negative_index = (kind == c.TRAINING_KIND_NEGATIVE).nonzero()[0]
+        candidates_positive_index = (kind == c.TRAINING_KIND_POSITIVE).nonzero()[0]
 
         evaluation_generated_index = np.random.choice(
             candidates_generated_index, size=evaluation_generated_size, replace=False)
@@ -122,65 +238,16 @@ class FeatureEngineering:
         return np.array(list(
             set(list(evaluation_generated_index) + list(evaluation_negative_index) + list(evaluation_positive_index))))
 
-    def construct_features(self, kind, title, truth_title, target, n=s.NUMBER_OF_WORDS_FEATURES):
-        """
-        TODO: Optimize this method!
-        Constructs a feature row per "title" and "title_truth" strings
-        :param kind: "Kind" of feature row see -
-            TRAINING_KIND_GENERATED, TRAINING_KIND_NEGATIVE, TRAINING_KIND_POSITIVE (in constants.py)
-        :param title: Title to match
-        :param truth_title: Title to match against
-        :param target: True or False - whether the "title" and "title_truth" are a match or not
-        :param n: NUMBER_OF_WORDS_FEATURES to consider while defining idf_word related features (defined in settings.py)
-        :return: A tuple corresponding to FEATURES_TYPES (settings.py)
-        """
-        feature_row = [kind]
+    def _encode_title(self,  title):
+        title = title.ljust(s.MAX_CHARACTERS_ALLOWED_IN_THE_TITLE, s.R_FILL_CHARACTER)
+        return np.array([self.encoding[x] for x in title], dtype=s.NUMBER_OF_CHARACTERS_DATA_TYPE)
 
-        title_number_of_characters = len(title)
-        truth_number_of_characters = len(truth_title)
-        title_words = title.split()
-        truth_words = truth_title.split()
-        title_number_of_words = len(title_words)
-        truth_number_of_words = len(truth_words)
-        distance = levenshtein_ratio(title, truth_title)
-
-        feature_row += [title_number_of_characters, truth_number_of_characters,
-                        title_number_of_words, truth_number_of_words, distance]
-
-        title_to_match = title.replace(' ', '')
-        range_title_to_match = range(len(title_to_match))
-
-        extra_nans = [np.nan] * (n - truth_number_of_words)
-
-        truth_words = truth_words[:n]
-
-        word_lengths = [len(x) for x in truth_words]
-        idf_s = [idf_word(x, self.words_counter, self.number_of_titles) for x in truth_words]
-        idf_s_ranks = [int(x) for x in np.argsort(idf_s).argsort() + 1]
-
-        best_scores = []
-        constructed_title = []
-        for length_truth_word, truth_word in zip(word_lengths, truth_words):
-            possible_words = list({title_to_match[i:i + length_truth_word] for i in range_title_to_match})
-            ratios = [levenshtein_ratio(truth_word, i) for i in possible_words]
-            arg_max = np.argmax(ratios)
-            best_score = ratios[arg_max]
-            best_score_match = possible_words[arg_max]
-            constructed_title.append(best_score_match)
-            best_scores.append(best_score)
-
-        reconstructed_score = levenshtein_ratio(' '.join(constructed_title), ' '.join(truth_words))
-
-        result = tuple(
-            feature_row +
-            (word_lengths + extra_nans) +
-            (idf_s + extra_nans) +
-            (idf_s_ranks + extra_nans) +
-            (best_scores + extra_nans) +
-            [reconstructed_score, target]
-        )
-
-        return result
+    def _encode_word_counter(self, title):
+        words = title.split()[:s.NUMBER_OF_WORDS_FEATURES]
+        encoded = np.zeros((s.NUMBER_OF_WORDS_FEATURES,), dtype=np.uint32)
+        counts = [self.words_counter[x] for x in words]
+        encoded[:len(counts)] = counts
+        return encoded
 
     def generate_train_and_evaluation_data_sets(self):
         training_rows_final = self._prepare_training_input_data()
@@ -188,26 +255,35 @@ class FeatureEngineering:
         LOGGER.info('Constructing features!')
 
         number_of_rows = len(training_rows_final)
-        features = np.zeros((number_of_rows,), dtype=s.FEATURES_TYPES)
 
-        for index, (kind, title, truth_title, target) in enumerate(training_rows_final):
-            if not((index+1) % 10000):
-                print(f'Processed {index+1} of {number_of_rows}!')
-            features[index] = self.construct_features(kind, title, truth_title, target)
+        encoding_type = s.NUMBER_OF_CHARACTERS_DATA_TYPE
+        float_type = s.ENCODING_FLOAT_TYPE
 
-        evaluation_indexes = self._get_evaluation_indexes(features)
+        title_number_of_characters = np.array([len(x[1]) for x in training_rows_final], dtype=encoding_type)
+        truth_number_of_characters = np.array([len(x[2]) for x in training_rows_final], dtype=encoding_type)
+        kind = np.array([x[0] for x in training_rows_final], dtype=encoding_type)
+        target = np.array([x[3] for x in training_rows_final], dtype=float_type)
+        title_encoded = np.array([self._encode_title(x[1]) for x in training_rows_final], dtype=encoding_type)
+        title_truth_encoded = np.array([self._encode_title(x[2]) for x in training_rows_final], dtype=encoding_type)
+        word_counter_encoded = np.array(
+            [self._encode_word_counter(x[2]) for x in training_rows_final], dtype=encoding_type)
 
+        del training_rows_final
+
+        features = np.zeros((number_of_rows, FEATURES_COUNT), dtype=s.ENCODING_FLOAT_TYPE)
+        dummy = np.zeros((FEATURES_COUNT,), dtype=s.NUMBER_OF_CHARACTERS_DATA_TYPE)
+        construct_features(title_number_of_characters, truth_number_of_characters,
+                           title_encoded, title_truth_encoded, word_counter_encoded,
+                           self.space_code, self.number_of_truth_titles,
+                           dummy, features)
+
+        evaluation_indexes = self._get_evaluation_indexes(kind)
+        train_indexes = [i for i in range(number_of_rows) if i not in evaluation_indexes]
+
+        train = features[train_indexes]
+        train_target = target[train_indexes]
         evaluation = features[evaluation_indexes]
-        train = features[~evaluation_indexes]
-
-        train[c.COLUMN_TRAIN_KIND] = s.DISABLE_TRAIN_KIND_VALUE
-        evaluation[c.COLUMN_TRAIN_KIND] = s.DISABLE_TRAIN_KIND_VALUE
-
-        train_target = np.copy(train[c.COLUMN_TARGET])
-        evaluation_target = np.copy(evaluation[c.COLUMN_TARGET])
-
-        train[c.COLUMN_TARGET] = s.DISABLE_TARGET_VALUE
-        evaluation[c.COLUMN_TARGET] = s.DISABLE_TARGET_VALUE
+        evaluation_target = target[evaluation_indexes]
 
         return (
             train,
