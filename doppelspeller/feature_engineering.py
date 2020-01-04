@@ -239,7 +239,8 @@ class FeatureEngineering:
             set(list(evaluation_generated_index) + list(evaluation_negative_index) + list(evaluation_positive_index))))
 
     def _encode_title(self,  title):
-        title = title.ljust(s.MAX_CHARACTERS_ALLOWED_IN_THE_TITLE, s.R_FILL_CHARACTER)
+        max_allowed_characters = s.MAX_CHARACTERS_ALLOWED_IN_THE_TITLE
+        title = title.ljust(max_allowed_characters, s.R_FILL_CHARACTER)[:max_allowed_characters]
         return np.array([self.encoding[x] for x in title], dtype=s.NUMBER_OF_CHARACTERS_DATA_TYPE)
 
     def _encode_word_counter(self, title):

@@ -30,6 +30,10 @@ def get_closest_matches_per_training_row(train_data, truth_data):
     number_training_rows = len(train_data)
     batch_time = time.time()
     for row_number, title_id in enumerate(train_data[c.COLUMN_TITLE_ID]):
+        if not(row_number % 5000):
+            elapsed = f'{round(time.time() - batch_time)} secs'
+            LOGGER.info(f'Processed {row_number} of {number_training_rows} [{elapsed}]!')
+            batch_time = time.time()
 
         matches = match_maker.get_closest_matches(row_number)
 
@@ -44,11 +48,6 @@ def get_closest_matches_per_training_row(train_data, truth_data):
                 closest_matches_per_training_row[title_id].pop()
 
             closest_matches_per_training_row[title_id].append(title_id)
-
-        if not(row_number % 5000):
-            elapsed = f'{round(time.time() - batch_time)} secs'
-            LOGGER.info(f'Processed {row_number} of {number_training_rows} [{elapsed}]!')
-            batch_time = time.time()
 
     return closest_matches_per_training_row
 
