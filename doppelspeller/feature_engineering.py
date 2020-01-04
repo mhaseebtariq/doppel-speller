@@ -24,7 +24,7 @@ def levenshtein_ratio(text, text_to_match):
 
 
 def levenshtein_token_sort_ratio(text, text_to_match):
-    text, text_to_match = ' '.join(sorted(text.split(' '))), ' '.join(sorted(text_to_match.split(' ')))
+    text, text_to_match = ' '.join(sorted(text.split())), ' '.join(sorted(text_to_match.split()))
     return levenshtein_ratio(text, text_to_match)
 
 
@@ -138,8 +138,8 @@ class FeatureEngineering:
 
         title_number_of_characters = len(title)
         truth_number_of_characters = len(truth_title)
-        title_words = title.split(' ')
-        truth_words = truth_title.split(' ')
+        title_words = title.split()
+        truth_words = truth_title.split()
         title_number_of_words = len(title_words)
         truth_number_of_words = len(truth_words)
         distance = levenshtein_ratio(title, truth_title)

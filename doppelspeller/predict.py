@@ -8,7 +8,7 @@ import xgboost as xgb
 import doppelspeller.settings as s
 import doppelspeller.constants as c
 from doppelspeller.common import load_processed_test_data, get_words_counter, transform_title
-from doppelspeller.feature_engineering import FeatureEngineering, levenshtein_ratio, levenshtein_token_sort_ratio
+from doppelspeller.feature_engineering import FeatureEngineering, levenshtein_token_sort_ratio
 
 
 LOGGER = logging.getLogger(__name__)
@@ -85,8 +85,8 @@ class Prediction:
         prediction_features_set = np.array(prediction_features.tolist(), dtype=np.float16)
         features_names = list(prediction_features.dtype.names)
         del prediction_features
-
         d_test = xgb.DMatrix(prediction_features_set, feature_names=features_names)
+
         return self.model.predict(d_test)
 
     def _find_exact_matches(self):
@@ -130,16 +130,12 @@ class Prediction:
 
         return remaining
 
-    def _find_close_matches(self, token_sort):
-        LOGGER.info(f'Finding very close matches - token_sort={token_sort}!')
-
-        levenshtein_ratio_function = levenshtein_ratio
-        if token_sort:
-            levenshtein_ratio_function = levenshtein_token_sort_ratio
+    def _find_close_matches(self):
+        LOGGER.info(f'Finding very close matches!')
 
         remaining = self._combine_titles_with_matches(10)
 
-        matches_ratios = map(lambda x, y: levenshtein_ratio_function(x, y),
+        matches_ratios = map(lambda x, y: levenshtein_token_sort_ratio(x, y),
                              remaining[c.COLUMN_TRANSFORMED_TITLE], remaining[c.COLUMN_MATCH_TRANSFORMED_TITLE])
         remaining.loc[:, c.COLUMN_LEVENSHTEIN_RATIO] = list(matches_ratios)
 
@@ -167,10 +163,6 @@ class Prediction:
         prediction_features = np.zeros((number_of_rows_remaining,), dtype=s.FEATURES_TYPES)
         for matrix_index, (title, truth_title_to_match_with) in enumerate(
                 zip(remaining[c.COLUMN_TRANSFORMED_TITLE], remaining[c.COLUMN_MATCH_TRANSFORMED_TITLE])):
-
-            if not((matrix_index+1) % 10000):
-                print(f'Processed {matrix_index+1} of {number_of_rows_remaining}!')
-
             kind, target = s.DISABLE_TRAIN_KIND_VALUE, s.DISABLE_TARGET_VALUE
             prediction_features[matrix_index] = self.feature_engineering.construct_features(
                 kind, title, truth_title_to_match_with, target)
@@ -229,23 +221,31 @@ class Prediction:
 
         return best_match_id, best_match, best_match_prediction
 
-    def _find_close_matches_ratio(self):
-        return self._find_close_matches(False)
-
-    def _find_close_matches_token_sort_ratio(self):
-        return self._find_close_matches(True)
-
     def process(self):
-        steps = [
-            self._find_exact_matches,
-            self._find_close_matches_ratio,
-            self._find_close_matches_token_sort_ratio,
-            self._find_matches_using_model
-        ]
+        chunk_size = 10000
+        data = self.data.copy(deep=True)
+        total = len(data)
+        iteration = -1
+        while True:
+            iteration += 1
+            start_index = iteration * chunk_size
+            stop_index = start_index + chunk_size
 
-        for step in steps:
-            step()
-            self._update_matched_so_far()
+            self.data = data.loc[data.iloc[start_index:stop_index].index, :]
+            if self.data.empty:
+                break
+
+            LOGGER.info(f'\nProcessing {start_index}-{stop_index} of {total}!\n')
+
+            steps = [
+                self._find_exact_matches,
+                self._find_close_matches,
+                self._find_matches_using_model
+            ]
+
+            for step in steps:
+                step()
+                self._update_matched_so_far()
 
         self._finalize_output()
 

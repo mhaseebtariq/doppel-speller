@@ -143,7 +143,7 @@ def remove_space(x, length):
 
 
 def swap_word(x, length):
-    words = x.split(' ')
+    words = x.split()
     indexes = list(range(len(words)))
     replace_index = random.choice(indexes)
     to_replace_with_index = random.choice(indexes)

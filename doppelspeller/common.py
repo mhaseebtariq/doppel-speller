@@ -52,7 +52,7 @@ def read_and_transform_input_csv(input_file, input_file_delimiter, file_columns_
 
     data.loc[:, c.COLUMN_TRANSFORMED_TITLE] = data.loc[:, c.COLUMN_TITLE].apply(
         lambda x: transform_title(x))
-    data.loc[:, c.COLUMN_WORDS] = data.loc[:, c.COLUMN_TRANSFORMED_TITLE].str.split(' ')
+    data.loc[:, c.COLUMN_WORDS] = data.loc[:, c.COLUMN_TRANSFORMED_TITLE].str.split()
     data.loc[:, c.COLUMN_NUMBER_OF_WORDS] = data.loc[:, c.COLUMN_WORDS].str.len()
     data.loc[:, c.COLUMN_N_GRAMS] = data.loc[:, c.COLUMN_TRANSFORMED_TITLE].apply(
         lambda x: get_n_grams(x, s.N_GRAMS)

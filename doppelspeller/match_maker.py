@@ -11,6 +11,7 @@ from doppelspeller.common import get_n_grams_counter
 
 NP_ACTUAL_ERROR_CONFIG = np.geterr()
 ENCODING_FLOAT_TYPE = np.float32
+ENCODING_FLOAT_BUFFER = np.finfo(ENCODING_FLOAT_TYPE).resolution
 
 LOGGER = logging.getLogger(__name__)
 
@@ -26,7 +27,22 @@ def fast_jaccard(number_of_truth_titles, max_intersection_possible, non_zero_col
         columns, values = matrix_truth_non_zero_columns_and_values[non_zero_column]
         scores[columns] += values
 
-    return -(scores / (sums_matrix_truth + (max_intersection_possible - scores)))
+    return scores / (sums_matrix_truth + (max_intersection_possible - scores))
+
+
+@njit(parallel=False)
+def fast_top_k(array, k):
+    sorted_indexes = np.zeros((k,), dtype=ENCODING_FLOAT_TYPE)
+    minimum_index = 0
+    minimum_index_value = 0
+    for value in array:
+        if value > minimum_index_value:
+            sorted_indexes[minimum_index] = value
+            minimum_index = sorted_indexes.argmin()
+            minimum_index_value = sorted_indexes[minimum_index]
+    minimum_index_value -= ENCODING_FLOAT_BUFFER
+    # Not sorted on importance
+    return (array >= minimum_index_value).nonzero()[0][::-1][:k]
 
 
 class MatchMaker:
@@ -89,7 +105,10 @@ class MatchMaker:
         return np.take_along_axis(arg_partition, np.take_along_axis(array, arg_partition, axis).argsort(axis), axis)
 
     def _get_top_n_matches(self, modified_jaccard):
-        top_matches = self._top_k_hybrid(modified_jaccard, self.top_n)
+        # top_matches = self._top_k_hybrid(modified_jaccard, self.top_n)
+        top_matches = fast_top_k(modified_jaccard, self.top_n)
+        if top_matches.shape[0] != self.top_n:
+            raise Exception('top_matches.shape[0] != self.top_n')
         return np.array(self.truth_data.loc[top_matches, c.COLUMN_TITLE_ID].values, dtype=np.uint32)
 
     def _find_matches(self):
