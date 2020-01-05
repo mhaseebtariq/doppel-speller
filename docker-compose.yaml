@@ -7,6 +7,5 @@ services:
         - .:/doppelspeller/
     environment:
         - PROJECT_DATA_PATH=/doppelspeller/data/
-        - LLVM_CONFIG=/usr/bin/llvm-config-8
     stdin_open: true
     tty: true
