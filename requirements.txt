@@ -7,4 +7,4 @@ numpy==1.17.4
 pandas==0.25.3
 xgboost==0.90
 python-levenshtein==0.12.0
-# numba==0.45.1
+numba==0.45.1

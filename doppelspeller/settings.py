@@ -11,8 +11,6 @@ if not PROJECT_DATA_PATH:
     warnings.warn(f'\n\nEnvironment variable PROJECT_DATA_PATH not set! Using {PROJECT_DATA_PATH} as default!\n')
 PROJECT_DATA_PATH = os.path.abspath(PROJECT_DATA_PATH)
 
-DISABLE_NUMBA = False
-
 # Jaccard distance settings
 N_GRAMS = 3
 
