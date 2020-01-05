@@ -13,8 +13,9 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get -y install libreadline-gplv2-dev \
     libgdbm-dev libc6-dev libbz2-dev libffi-dev zlib1g-dev
 RUN apt-get -y install libblas-dev liblapack-dev
 RUN apt-get -y install git
-RUN cd /opt && wget https://www.python.org/ftp/python/3.8.0/Python-3.8.0.tgz && \
-    tar xzf Python-3.8.0.tgz && cd Python-3.8.0 && ./configure --enable-optimizations && \
+RUN apt-get -y install llvm
+RUN cd /opt && wget https://www.python.org/ftp/python/3.7.3/Python-3.7.3.tgz && \
+    tar xzf Python-3.7.3.tgz && cd Python-3.7.3 && ./configure --enable-optimizations && \
     ./configure --enable-optimizations && make altinstall
-RUN rm -f /opt/Python-3.8.0.tgz
-RUN pip3.8 install pip --upgrade
+RUN rm -f /opt/Python-3.7.3.tgz
+RUN pip3.7 install pip --upgrade

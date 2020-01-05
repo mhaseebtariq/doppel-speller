@@ -258,7 +258,9 @@ class FeatureEngineering:
     def generate_train_and_evaluation_data_sets(self):
         training_rows_final = self._prepare_training_input_data()
 
-        LOGGER.info('Constructing features!')
+        LOGGER.info('Preparing features!')
+
+        # TODO: Need optimization
 
         number_of_rows = len(training_rows_final)
 
@@ -278,10 +280,15 @@ class FeatureEngineering:
 
         features = np.zeros((number_of_rows, FEATURES_COUNT), dtype=float_type)
         dummy = np.zeros((FEATURES_COUNT,), dtype=encoding_type)
+
+        LOGGER.info(f'Constructing features!')
+
         construct_features(title_number_of_characters, truth_number_of_characters,
                            title_encoded, title_truth_encoded, word_counter_encoded,
                            self.space_code, self.number_of_truth_titles,
                            dummy, features)
+
+        LOGGER.info(f'Features (shape = {features.shape}) constructed!')
 
         evaluation_indexes = self._get_evaluation_indexes(kind)
         train_indexes = [i for i in range(number_of_rows) if i not in evaluation_indexes]

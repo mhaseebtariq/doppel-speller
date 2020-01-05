@@ -1,6 +1,7 @@
 import logging
 import _pickle as pickle
 
+import numba
 import pandas as pd
 import numpy as np
 import xgboost as xgb
@@ -13,26 +14,31 @@ from doppelspeller.feature_engineering import FeatureEngineering
 LOGGER = logging.getLogger(__name__)
 
 
-def custom_error(predictions, train_or_evaluation):
-    actual_target = train_or_evaluation.get_label()
+@numba.njit(fastmath=True)
+def fast_custom_error(prediction, actual):
+    predictions_negative_indexes = (prediction <= s.PREDICTION_PROBABILITY_THRESHOLD).nonzero()[0]
+    predictions_positive_indexes = (prediction > s.PREDICTION_PROBABILITY_THRESHOLD).nonzero()[0]
 
-    predictions_negative_indexes = (predictions <= s.PREDICTION_PROBABILITY_THRESHOLD).nonzero()[0]
-    predictions_positive_indexes = (predictions > s.PREDICTION_PROBABILITY_THRESHOLD).nonzero()[0]
+    false_negative_cost = np.sum(actual[predictions_negative_indexes])
+    false_positive_cost = np.sum(actual[predictions_positive_indexes] == 0) * s.FALSE_POSITIVE_PENALTY_FACTOR
 
-    false_negative_cost = sum(actual_target[predictions_negative_indexes])
-    false_positive_cost = sum(actual_target[predictions_positive_indexes] == 0) * s.FALSE_POSITIVE_PENALTY_FACTOR
+    return false_negative_cost + false_positive_cost
 
-    cost = false_negative_cost + false_positive_cost
 
-    return 'custom-error', cost
+@numba.njit(fastmath=True)
+def fast_weighted_log_loss(prediction, actual):
+    beta = s.FALSE_POSITIVE_PENALTY_FACTOR
+    gradient = prediction * (beta + actual - beta * actual) - actual
+    hessian = prediction * (1 - prediction) * (beta + actual - beta * actual)
+    return gradient, hessian
+
+
+def custom_error(predictions, train_data_object):
+    return 'custom-error', fast_custom_error(predictions, train_data_object.get_label())
 
 
 def weighted_log_loss(predictions, train_data_object):
-    beta = s.FALSE_POSITIVE_PENALTY_FACTOR
-    actual_target = train_data_object.get_label()
-    gradient = predictions * (beta + actual_target - beta * actual_target) - actual_target
-    hessian = predictions * (1 - predictions) * (beta + actual_target - beta * actual_target)
-    return gradient, hessian
+    return fast_weighted_log_loss(predictions, train_data_object.get_label())
 
 
 def get_xgb_feats_importance(model):
