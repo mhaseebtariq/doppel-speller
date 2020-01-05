@@ -7,30 +7,25 @@ import xgboost as xgb
 
 import doppelspeller.settings as s
 import doppelspeller.constants as c
-from doppelspeller.common import load_processed_test_data, get_words_counter, transform_title, \
-    levenshtein_token_sort_ratio
-from doppelspeller.feature_engineering import FeatureEngineering
+from doppelspeller.common import levenshtein_ratio, levenshtein_token_sort_ratio
+from doppelspeller.feature_engineering import FEATURES_COUNT, FeatureEngineering, construct_features
+from doppelspeller.match_maker import MatchMaker
 
 LOGGER = logging.getLogger(__name__)
 
 
 class Prediction:
-    def __init__(self):
-        self.processed_data = load_processed_test_data()
-
-        self.data = self.processed_data[c.DATA_TYPE_TEST]
-        self.truth_data = self._set_index_truth_data(self.processed_data[c.DATA_TYPE_TRUTH])
-        self.nearest_matches = self.processed_data[c.DATA_TYPE_NEAREST_TEST]
-
-        self.words_counter = get_words_counter(self.truth_data)
-        self.number_of_titles = len(self.truth_data)
-
-        self.truth_data_mapping, self.truth_data_mapping_reversed = self. _get_truth_data_mappings(self.truth_data)
-
+    def __init__(self, data_type, title=None):
+        self.feature_engineering = FeatureEngineering(data_type, title=title)
+        self.data = self.feature_engineering.data
+        self.truth_data = self.feature_engineering.truth_data
         self.model = self._load_model()
-        self.predictions = self._initiate_predictions_data(list(self.data[c.COLUMN_TEST_INDEX]))
-        self.feature_engineering = FeatureEngineering(c.DATA_TYPE_TEST)
-        self.matched_so_far = []
+
+        self.predictions = None
+        self.match_maker = None
+        self.matched_so_far = None
+        self.truth_data_mapping = None
+        self.truth_data_mapping_reversed = None
 
     @staticmethod
     def _initiate_predictions_data(test_index):
@@ -63,9 +58,6 @@ class Prediction:
     def _load_model():
         with open(s.MODEL_DUMP_FILE, 'rb') as fl:
             return pickle.load(fl)
-
-    def _get_nearest_matches(self, test_id):
-        return self.nearest_matches[test_id]
 
     def _save_prediction(self, test_index, title_to_match, best_match, best_match_id, best_match_probability):
         to_update_columns = [
@@ -105,24 +97,25 @@ class Prediction:
             best_match = self.truth_data_mapping[best_match_id]
             self._save_prediction(test_index, title_to_match, best_match, best_match_id, 1.0)
 
-    def _get_nearest_match_title_id(self, index, test_index, number_of_matches):
-        index = index % number_of_matches
-        return self.nearest_matches[test_index][index]
+        self._update_matched_so_far()
+
+    def _get_nearest_match_title_id(self, index, test_index, nearest_matches):
+        index = index % self.match_maker.top_n
+        return nearest_matches[test_index][index]
 
     def _get_nearest_match_title(self, match_id):
         return self.truth_data_mapping[match_id]
 
-    def _combine_titles_with_matches(self, number_of_matches):
+    def _combine_titles_with_matches(self):
         remaining = self.data.loc[~self.data.index.isin(self.matched_so_far), :].copy(deep=True)
         remaining = remaining.loc[:, [c.COLUMN_TEST_INDEX, c.COLUMN_TRANSFORMED_TITLE]]
+        nearest_matches = {row_number: self.match_maker.get_closest_matches(row_number)
+                           for row_number in remaining.index}
 
-        if len(self.nearest_matches[0]) < number_of_matches:
-            raise Exception('len(self.nearest_matches[0]) < number_of_matches')
-
-        remaining = remaining.loc[remaining.index.repeat(number_of_matches)]
+        remaining = remaining.loc[remaining.index.repeat(self.match_maker.top_n)]
         remaining.reset_index(drop=True, inplace=True)
 
-        matches_title_ids = map(lambda x, y: self._get_nearest_match_title_id(x, y, number_of_matches),
+        matches_title_ids = map(lambda x, y: self._get_nearest_match_title_id(x, y, nearest_matches),
                                 remaining.index, remaining[c.COLUMN_TEST_INDEX])
         remaining.loc[:, c.COLUMN_MATCH_TITLE_ID] = list(matches_title_ids)
         remaining.loc[:, c.COLUMN_MATCH_TRANSFORMED_TITLE] = remaining[c.COLUMN_MATCH_TITLE_ID].apply(
@@ -130,60 +123,90 @@ class Prediction:
 
         return remaining
 
+    @staticmethod
+    def _get_levenshtein_ratio(x, y, threshold):
+        ratio = levenshtein_ratio(x, y)
+        if ratio <= threshold:
+            return levenshtein_token_sort_ratio(x, y)
+        return ratio
+
     def _find_close_matches(self):
+        threshold = 94
+
         LOGGER.info(f'Finding very close matches!')
 
-        remaining = self._combine_titles_with_matches(10)
+        remaining = self._combine_titles_with_matches()
 
-        matches_ratios = map(lambda x, y: levenshtein_token_sort_ratio(x, y),
+        matches_ratios = map(lambda x, y: self._get_levenshtein_ratio(x, y, threshold),
                              remaining[c.COLUMN_TRANSFORMED_TITLE], remaining[c.COLUMN_MATCH_TRANSFORMED_TITLE])
         remaining.loc[:, c.COLUMN_LEVENSHTEIN_RATIO] = list(matches_ratios)
 
         indexes_with_max_ratios = remaining.groupby(
             [c.COLUMN_TEST_INDEX])[c.COLUMN_LEVENSHTEIN_RATIO].transform(max) == remaining[c.COLUMN_LEVENSHTEIN_RATIO]
-        remaining = remaining.loc[indexes_with_max_ratios, :]
-        remaining = remaining.loc[remaining[c.COLUMN_LEVENSHTEIN_RATIO] > 94, :]
 
+        matches = remaining.loc[indexes_with_max_ratios, :]
+        matches = matches.loc[matches[c.COLUMN_LEVENSHTEIN_RATIO] > threshold, :]
         for test_index, title_to_match, best_match, best_match_id in zip(
-            remaining[c.COLUMN_TEST_INDEX],
-            remaining[c.COLUMN_TRANSFORMED_TITLE],
-            remaining[c.COLUMN_MATCH_TRANSFORMED_TITLE],
-            remaining[c.COLUMN_MATCH_TITLE_ID],
+            matches[c.COLUMN_TEST_INDEX],
+            matches[c.COLUMN_TRANSFORMED_TITLE],
+            matches[c.COLUMN_MATCH_TRANSFORMED_TITLE],
+            matches[c.COLUMN_MATCH_TITLE_ID],
         ):
             self._save_prediction(test_index, title_to_match, best_match, best_match_id, 1.0)
 
-        del remaining
+        self._update_matched_so_far()
 
-    def _find_matches_using_model(self):
+        found_test_indexes = list(matches[c.COLUMN_TEST_INDEX].unique())
+        return remaining.loc[~(remaining[c.COLUMN_TEST_INDEX].isin(found_test_indexes)), :]
+
+    def _find_matches_using_model(self, remaining, single_prediction=False):
         LOGGER.info('Finding matches using the model!')
 
-        remaining = self._combine_titles_with_matches(100)
-        number_of_rows_remaining = len(remaining)
+        number_of_rows = len(remaining)
 
-        prediction_features = np.zeros((number_of_rows_remaining,), dtype=s.FEATURES_TYPES)
-        for matrix_index, (title, truth_title_to_match_with) in enumerate(
-                zip(remaining[c.COLUMN_TRANSFORMED_TITLE], remaining[c.COLUMN_MATCH_TRANSFORMED_TITLE])):
-            kind, target = s.DISABLE_TRAIN_KIND_VALUE, s.DISABLE_TARGET_VALUE
-            prediction_features[matrix_index] = self.feature_engineering.construct_features(
-                kind, title, truth_title_to_match_with, target)
+        encoding_type = s.NUMBER_OF_CHARACTERS_DATA_TYPE
+        float_type = s.ENCODING_FLOAT_TYPE
 
-        remaining.loc[:, c.COLUMN_PREDICTION] = self._predict(prediction_features)
+        title_number_of_characters = np.array(remaining[c.COLUMN_TRANSFORMED_TITLE].str.len(), dtype=encoding_type)
+        truth_number_of_characters = np.array(
+            remaining[c.COLUMN_MATCH_TRANSFORMED_TITLE].str.len(), dtype=encoding_type)
+        title_encoded = np.array(remaining[c.COLUMN_TRANSFORMED_TITLE].apply(
+            self.feature_engineering.encode_title).tolist(), dtype=encoding_type)
+        title_truth_encoded = np.array(remaining[c.COLUMN_MATCH_TRANSFORMED_TITLE].apply(
+            self.feature_engineering.encode_title).tolist(), dtype=encoding_type)
+        word_counter_encoded = np.array(remaining[c.COLUMN_MATCH_TRANSFORMED_TITLE].apply(
+            self.feature_engineering.encode_word_counter).tolist(), dtype=encoding_type)
 
-        indexes_with_max_predictions = remaining.groupby(
-            [c.COLUMN_TEST_INDEX])[c.COLUMN_PREDICTION].transform(max) == remaining[c.COLUMN_PREDICTION]
-        remaining = remaining.loc[indexes_with_max_predictions, :]
-        remaining = remaining.loc[remaining[c.COLUMN_PREDICTION] > s.PREDICTION_PROBABILITY_THRESHOLD, :]
+        features = np.zeros((number_of_rows, FEATURES_COUNT), dtype=float_type)
+        dummy = np.zeros((FEATURES_COUNT,), dtype=encoding_type)
+        construct_features(title_number_of_characters, truth_number_of_characters,
+                           title_encoded, title_truth_encoded, word_counter_encoded,
+                           self.feature_engineering.space_code, self.feature_engineering.number_of_truth_titles,
+                           dummy, features)
+
+        remaining.loc[:, c.COLUMN_PREDICTION] = self.model.predict(xgb.DMatrix(features))
+
+        if single_prediction:
+            max_prediction = max(remaining.loc[:, c.COLUMN_PREDICTION])
+            matches = remaining.loc[remaining[c.COLUMN_PREDICTION] == max_prediction, :]
+        else:
+            indexes_with_max_predictions = remaining.groupby(
+                [c.COLUMN_TEST_INDEX])[c.COLUMN_PREDICTION].transform(max) == remaining[c.COLUMN_PREDICTION]
+            matches = remaining.loc[indexes_with_max_predictions, :]
+            matches = matches.loc[matches[c.COLUMN_PREDICTION] > s.PREDICTION_PROBABILITY_THRESHOLD, :]
 
         for test_index, title_to_match, best_match, best_match_id, prediction_probability in zip(
-                remaining[c.COLUMN_TEST_INDEX],
-                remaining[c.COLUMN_TRANSFORMED_TITLE],
-                remaining[c.COLUMN_MATCH_TRANSFORMED_TITLE],
-                remaining[c.COLUMN_MATCH_TITLE_ID],
-                remaining[c.COLUMN_PREDICTION],
+                matches[c.COLUMN_TEST_INDEX],
+                matches[c.COLUMN_TRANSFORMED_TITLE],
+                matches[c.COLUMN_MATCH_TRANSFORMED_TITLE],
+                matches[c.COLUMN_MATCH_TITLE_ID],
+                matches[c.COLUMN_PREDICTION],
         ):
             self._save_prediction(test_index, title_to_match, best_match, best_match_id, prediction_probability)
 
         del remaining
+
+        self._update_matched_so_far()
 
     def _update_matched_so_far(self):
         filter_ = self.predictions[c.COLUMN_BEST_MATCH_ID] != s.TRAIN_NOT_FOUND_VALUE
@@ -196,33 +219,19 @@ class Prediction:
         predictions.rename(columns={c.COLUMN_BEST_MATCH_ID: c.COLUMN_TITLE_ID}, inplace=True)
         predictions.to_csv(s.FINAL_OUTPUT_FILE, index=False, sep=s.TEST_FILE_DELIMITER)
 
-    def extensive_search_single_title(self, title):
-        title_to_match = transform_title(title)
-        matches_nearest = list(self.truth_data.index)
+    def generate_test_predictions(self, single_prediction=False):
+        top_n = s.TOP_N_RESULTS_TO_FIND_FOR_PREDICTING
+        if single_prediction:
+            top_n = self.feature_engineering.number_of_truth_titles
+        self.matched_so_far = []
+        self.match_maker = MatchMaker(self.data, self.truth_data, top_n)
+        self.predictions = self._initiate_predictions_data(list(self.data[c.COLUMN_TEST_INDEX]))
+        self.feature_engineering = FeatureEngineering(c.DATA_TYPE_TEST)
+        self.truth_data_mapping, self.truth_data_mapping_reversed = self._get_truth_data_mappings(self.truth_data)
 
-        prediction_features = np.zeros((len(matches_nearest),), dtype=s.FEATURES_TYPES)
-        matches = []
-        for matrix_index, match_index in enumerate(matches_nearest):
-            match = self.truth_data_mapping[match_index]
-            matches.append(match)
+        self._find_exact_matches()
 
-            kind, title, truth_title, target = (
-                s.DISABLE_TRAIN_KIND_VALUE, title_to_match, match, s.DISABLE_TARGET_VALUE
-            )
-            prediction_features[matrix_index] = self.feature_engineering.construct_features(
-                kind, title, truth_title, target)
-
-        predictions = self._predict(prediction_features)
-
-        best_match_index = np.argmax(predictions)
-        best_match = matches[best_match_index]
-        best_match_id = matches_nearest[best_match_index]
-        best_match_prediction = predictions[best_match_index]
-
-        return best_match_id, best_match, best_match_prediction
-
-    def process(self):
-        chunk_size = 10000
+        chunk_size = 5000
         data = self.data.copy(deep=True)
         total = len(data)
         iteration = -1
@@ -235,18 +244,15 @@ class Prediction:
             if self.data.empty:
                 break
 
+            if stop_index > total:
+                stop_index = total
             LOGGER.info(f'\nProcessing {start_index}-{stop_index} of {total}!\n')
 
-            steps = [
-                self._find_exact_matches,
-                self._find_close_matches,
-                self._find_matches_using_model
-            ]
+            remaining = self._find_close_matches()
+            self._find_matches_using_model(remaining, single_prediction=single_prediction)
 
-            for step in steps:
-                step()
-                self._update_matched_so_far()
+        if single_prediction:
+            return self.predictions.iloc[0].to_dict()
 
         self._finalize_output()
-
         return s.FINAL_OUTPUT_FILE

@@ -1,23 +1,23 @@
 import math
 import logging
 
+import numba
 import numpy as np
 from scipy.sparse import lil_matrix
 
 import doppelspeller.settings as s
 import doppelspeller.constants as c
-from doppelspeller import njit, List
 from doppelspeller.common import get_n_grams_counter
 
 
 LOGGER = logging.getLogger(__name__)
 
 
-@njit(fastmath=True, parallel=True)
+@numba.njit(fastmath=True, parallel=True)
 def fast_jaccard(number_of_truth_titles, max_intersection_possible, non_zero_columns_for_the_row,
                  matrix_truth_non_zero_columns_and_values, sums_matrix_truth):
     """
-    TODO: Set the proper function signatures for better speed!
+    TODO
     """
     scores = np.zeros((number_of_truth_titles,), dtype=s.ENCODING_FLOAT_TYPE)
     for non_zero_column in non_zero_columns_for_the_row:
@@ -27,8 +27,12 @@ def fast_jaccard(number_of_truth_titles, max_intersection_possible, non_zero_col
     return scores / (sums_matrix_truth + (max_intersection_possible - scores))
 
 
-@njit(parallel=False)
+@numba.njit(parallel=False)
 def fast_top_k(array, k):
+    """
+    * 50x faster than np.argsort
+    * Not sorted on importance
+    """
     sorted_indexes = np.zeros((k,), dtype=s.ENCODING_FLOAT_TYPE)
     minimum_index = 0
     minimum_index_value = 0
@@ -38,7 +42,6 @@ def fast_top_k(array, k):
             minimum_index = sorted_indexes.argmin()
             minimum_index_value = sorted_indexes[minimum_index]
     minimum_index_value -= s.ENCODING_FLOAT_BUFFER
-    # Not sorted on importance
     return (array >= minimum_index_value).nonzero()[0][::-1][:k]
 
 
@@ -67,14 +70,14 @@ class MatchMaker:
         self.sums_matrix_truth = self._get_sums_matrix_truth()
 
     def _get_matrix_non_zero_columns(self):
-        matrix_non_zero_columns = List()
+        matrix_non_zero_columns = numba.typed.List()
         for row in range(self.matrix.shape[0]):
             matrix_non_zero_columns.append(self.matrix[row].nonzero()[1])
 
         return matrix_non_zero_columns
 
     def _get_matrix_truth_non_zero_columns_and_values(self):
-        matrix_truth_non_zero_columns_and_values = List()
+        matrix_truth_non_zero_columns_and_values = numba.typed.List()
         for row in range(self.matrix_truth.shape[0]):
             non_zero_columns = self.matrix_truth[row].nonzero()[1]
             values = np.array([self._get_idf_given_index(row)] * len(non_zero_columns), dtype=s.ENCODING_FLOAT_TYPE)

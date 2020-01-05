@@ -48,5 +48,6 @@ TRAINING_KIND_POSITIVE = 3
 DATA_TYPE_TRUTH = 'type_truth'
 DATA_TYPE_TRAIN = 'type_train'
 DATA_TYPE_TEST = 'type_test'
+DATA_TYPE_SINGLE = 'type_single'
 DATA_TYPE_NEAREST_TRAIN = 'type_nearest_train'
 DATA_TYPE_NEAREST_TEST = 'type_nearest_test'

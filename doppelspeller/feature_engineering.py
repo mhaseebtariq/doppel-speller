@@ -7,13 +7,14 @@ import numpy as np
 import doppelspeller.settings as s
 import doppelspeller.constants as c
 from doppelspeller.feature_engineering_prepare import get_closest_matches_per_training_row, generate_misspelled_name
-from doppelspeller.common import get_ground_truth, get_train_data, get_test_data, get_words_counter
+from doppelspeller.common import get_ground_truth, get_train_data, get_test_data, get_words_counter, get_single_data
 
 LOGGER = logging.getLogger(__name__)
 
 DATA_TYPE_MAPPING = {
     c.DATA_TYPE_TRAIN: get_train_data,
     c.DATA_TYPE_TEST: get_test_data,
+    c.DATA_TYPE_SINGLE: get_single_data,
 }
 
 
@@ -77,7 +78,7 @@ def construct_features(title_number_of_characters, truth_number_of_characters,
     truth_number_of_words = title_truth[title_truth == space_code].shape[0] + 1
     lev_ratio = fast_levenshtein(title, title_truth)
 
-    title_wo_spaces = title_truth[title_truth != space_code]
+    title_wo_spaces = title[title != space_code]
 
     title_truth_w_extra_space = np.concatenate(
         (title_truth, np.array([space_code], dtype=s.NUMBER_OF_CHARACTERS_DATA_TYPE)))
@@ -103,7 +104,7 @@ def construct_features(title_number_of_characters, truth_number_of_characters,
             truth_word = title_truth[:space_index]
         else:
             truth_word = title_truth[last_index:space_index]
-        last_index = space_index
+        last_index = space_index + 1
 
         # Possible words loop
         length_truth_word = truth_word.shape[0]
@@ -126,7 +127,7 @@ def construct_features(title_number_of_characters, truth_number_of_characters,
             (reconstructed_title, best_match, np.array([space_code], dtype=s.NUMBER_OF_CHARACTERS_DATA_TYPE)))
 
     # IDF Ranks
-    ranks_idf_s = idf_s * (s.NUMBER_OF_WORDS_FEATURES / np.nanmax(idf_s))
+    ranks_idf_s = 1 + ((np.nanmax(idf_s) - idf_s) / truth_number_of_words)
 
     # Removing first and last space
     reconstructed_lev_ratio = fast_levenshtein(reconstructed_title[1: reconstructed_title.shape[0] - 1], title_truth)
@@ -140,10 +141,14 @@ def construct_features(title_number_of_characters, truth_number_of_characters,
 
 
 class FeatureEngineering:
-    def __init__(self, data_type):
+    def __init__(self, data_type, title=None):
         LOGGER.info(f'[{self.__class__.__name__}] Loading pre-requisite data!')
 
-        self.data = DATA_TYPE_MAPPING[data_type]()
+        data_args = tuple()
+        if title:
+            data_args = (title,)
+
+        self.data = DATA_TYPE_MAPPING[data_type](*data_args)
         self.truth_data = get_ground_truth()
 
         self.words_counter = get_words_counter(self.truth_data)
@@ -238,12 +243,12 @@ class FeatureEngineering:
         return np.array(list(
             set(list(evaluation_generated_index) + list(evaluation_negative_index) + list(evaluation_positive_index))))
 
-    def _encode_title(self,  title):
+    def encode_title(self, title):
         max_allowed_characters = s.MAX_CHARACTERS_ALLOWED_IN_THE_TITLE
         title = title.ljust(max_allowed_characters, s.R_FILL_CHARACTER)[:max_allowed_characters]
         return np.array([self.encoding[x] for x in title], dtype=s.NUMBER_OF_CHARACTERS_DATA_TYPE)
 
-    def _encode_word_counter(self, title):
+    def encode_word_counter(self, title):
         words = title.split()[:s.NUMBER_OF_WORDS_FEATURES]
         encoded = np.zeros((s.NUMBER_OF_WORDS_FEATURES,), dtype=np.uint32)
         counts = [self.words_counter[x] for x in words]
@@ -264,15 +269,15 @@ class FeatureEngineering:
         truth_number_of_characters = np.array([len(x[2]) for x in training_rows_final], dtype=encoding_type)
         kind = np.array([x[0] for x in training_rows_final], dtype=encoding_type)
         target = np.array([x[3] for x in training_rows_final], dtype=float_type)
-        title_encoded = np.array([self._encode_title(x[1]) for x in training_rows_final], dtype=encoding_type)
-        title_truth_encoded = np.array([self._encode_title(x[2]) for x in training_rows_final], dtype=encoding_type)
+        title_encoded = np.array([self.encode_title(x[1]) for x in training_rows_final], dtype=encoding_type)
+        title_truth_encoded = np.array([self.encode_title(x[2]) for x in training_rows_final], dtype=encoding_type)
         word_counter_encoded = np.array(
-            [self._encode_word_counter(x[2]) for x in training_rows_final], dtype=encoding_type)
+            [self.encode_word_counter(x[2]) for x in training_rows_final], dtype=encoding_type)
 
         del training_rows_final
 
-        features = np.zeros((number_of_rows, FEATURES_COUNT), dtype=s.ENCODING_FLOAT_TYPE)
-        dummy = np.zeros((FEATURES_COUNT,), dtype=s.NUMBER_OF_CHARACTERS_DATA_TYPE)
+        features = np.zeros((number_of_rows, FEATURES_COUNT), dtype=float_type)
+        dummy = np.zeros((FEATURES_COUNT,), dtype=encoding_type)
         construct_features(title_number_of_characters, truth_number_of_characters,
                            title_encoded, title_truth_encoded, word_counter_encoded,
                            self.space_code, self.number_of_truth_titles,

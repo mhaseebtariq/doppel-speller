@@ -25,9 +25,6 @@ test:
 stage-example-data-set:
 	docker-compose up -d && docker exec -t doppelspeller doppel-speller -vv stage-example-data-set-on-docker-container
 
-pre-process-data:
-	docker-compose up -d && docker exec -t doppelspeller doppel-speller -vv pre-process-data
-
 train-model:
 	docker-compose up -d && docker exec -t doppelspeller doppel-speller -vv train-model
 

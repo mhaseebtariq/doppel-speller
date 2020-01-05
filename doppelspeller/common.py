@@ -1,7 +1,6 @@
 import re
 import logging
 import math
-import _pickle as pickle
 from collections import Counter
 
 import unicodedata
@@ -137,20 +136,21 @@ def get_min_hash(title, num_perm):
     return min_hash
 
 
-def load_processed_train_data():
-    try:
-        with open(s.PRE_REQUISITE_TRAIN_DATA_FILE, 'rb') as fl:
-            return pickle.load(fl)
-    except FileNotFoundError:
-        LOGGER.warning(f'File ({s.PRE_REQUISITE_TRAIN_DATA_FILE}) not found. Please run the "pre-process-data" cli!')
-
-
-def load_processed_test_data():
-    try:
-        with open(s.PRE_REQUISITE_TEST_DATA_FILE, 'rb') as fl:
-            return pickle.load(fl)
-    except FileNotFoundError:
-        LOGGER.warning(f'File ({s.PRE_REQUISITE_TEST_DATA_FILE}) not found. Please run the "pre-process-data" cli!')
+def get_single_data(title):
+    test_index = 0
+    transformed_title = transform_title(title)
+    words = transformed_title.split()
+    number_of_words = len(words)
+    n_grams = get_n_grams(transformed_title, s.N_GRAMS)
+    return pd.DataFrame([[
+        test_index,
+        title,
+        transformed_title,
+        words,
+        number_of_words,
+        n_grams,
+    ]], columns=[c.COLUMN_TEST_INDEX, c.COLUMN_TITLE, c.COLUMN_TRANSFORMED_TITLE,
+                 c.COLUMN_WORDS, c.COLUMN_NUMBER_OF_WORDS, c.COLUMN_N_GRAMS])
 
 
 def levenshtein_ratio(text, text_to_match):

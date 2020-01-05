@@ -53,11 +53,12 @@ def train_model(**kwargs):
 @time_usage
 def generate_predictions(**kwargs):
     """Generate the predictions!"""
+    import doppelspeller.constants as c
     from doppelspeller.predict import Prediction
 
     LOGGER.info('Generating the predictions!')
-    prediction = Prediction()
-    return prediction.process()
+    prediction = Prediction(c.DATA_TYPE_TEST)
+    return prediction.generate_test_predictions()
 
 
 @cli.command()
@@ -65,6 +66,7 @@ def generate_predictions(**kwargs):
 @time_usage
 def extensive_search_single_title(**kwargs):
     """Extensive search single title!"""
+    import doppelspeller.constants as c
     from doppelspeller.predict import Prediction
 
     LOGGER.info('Searching for the closest match!')
@@ -73,11 +75,11 @@ def extensive_search_single_title(**kwargs):
     if not title_to_search:
         raise Exception('Empty value provided for --title-to-search="" (direct call) or title="" (make call)')
 
-    prediction = Prediction()
-    found = prediction.extensive_search_single_title(title_to_search)
+    prediction = Prediction(c.DATA_TYPE_SINGLE, title=title_to_search)
+    found = prediction.generate_test_predictions(single_prediction=True)
 
     LOGGER.info(f'Title: {kwargs["title"]}')
-    LOGGER.info(f'Closest match: {found}')
+    LOGGER.info(f'\n\nClosest match: {found}\n')
     return found
 
 

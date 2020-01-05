@@ -26,13 +26,10 @@ using a combination of Machine Learning and NLP techniques.<br/><br/>
 
 Run the following cli's in order:
 
-#### `make pre-process-data`
-Alias of `pre_process_data` in [cli.py](./doppelspeller/cli.py)
-* Prepares training data for a `OneVsRest[*]Classifier` - "rest" being the nearest "n" (based on the Jaccard distance) matches
-* Each "positive" match is trained along with the nearest n matches, that do not match with the title
-
 #### `make train-model`
 Alias of `train_model` in [cli.py](./doppelspeller/cli.py)
+* Prepares training data for a `OneVsRest[*]Classifier` - "rest" being the nearest "n" (based on the Jaccard distance) matches
+* Each "positive" match is trained along with the nearest n matches, that do not match with the title
 * Generates `train` and `evaluation` data sets for the `train-model` cli
 * Main features generation method: `construct_features` (in [feature_engineering.py](./doppelspeller/feature_engineering.py))
 * XGBoost training output: `train-auc:1	evaluation-auc:0.999893	train-custom-error:5	evaluation-custom-error:178`
