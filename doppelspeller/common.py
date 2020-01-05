@@ -6,7 +6,6 @@ from collections import Counter
 import unicodedata
 import pandas as pd
 from Levenshtein import ratio
-from datasketch import MinHash
 
 import doppelspeller.constants as c
 import doppelspeller.settings as s
@@ -128,12 +127,6 @@ def idf_word(word, words_counter, number_of_titles):
     Inverse document frequency
     """
     return math.log(number_of_titles / words_counter[word])
-
-
-def get_min_hash(title, num_perm):
-    min_hash = MinHash(num_perm=num_perm)
-    _ = [min_hash.update(str(x).encode('utf8')) for x in title]
-    return min_hash
 
 
 def get_single_data(title):
