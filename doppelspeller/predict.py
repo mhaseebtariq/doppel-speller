@@ -35,6 +35,27 @@ class Prediction:
         ]
         self.predictions = pd.DataFrame(index=[], columns=self.predictions_columns)
 
+        self.mapping_truth_title_encoding = None
+        self.mapping_truth_words_counts = None
+        self.mapping_title_encoding = None
+        self._populate_encoding_mappings()
+
+    def _populate_encoding_mappings(self):
+        title_column = c.COLUMN_TRANSFORMED_TITLE
+
+        self.mapping_truth_title_encoding = self.truth_data.set_index(c.COLUMN_TITLE_ID).to_dict()[title_column]
+        self.mapping_truth_title_encoding = {
+            k: self.feature_engineering.encode_title(v) for k, v in self.mapping_truth_title_encoding.items()
+        }
+        self.mapping_truth_words_counts = self.truth_data.set_index(c.COLUMN_TITLE_ID).to_dict()[title_column]
+        self.mapping_truth_words_counts = {
+            k: self.feature_engineering.get_truth_words_counts(v) for k, v in self.mapping_truth_words_counts.items()
+        }
+        self.mapping_title_encoding = self.data.set_index(c.COLUMN_TEST_INDEX).to_dict()[title_column]
+        self.mapping_title_encoding = {
+            k: self.feature_engineering.encode_title(v) for k, v in self.mapping_title_encoding.items()
+        }
+
     @staticmethod
     def _set_index_truth_data(truth_data):
         truth_data.set_index(c.COLUMN_TITLE_ID, inplace=True)
@@ -72,10 +93,6 @@ class Prediction:
         return self.model.predict(d_test)
 
     def _find_exact_matches(self):
-        """
-        TODO: THIS IS SLOW
-        :return:
-        """
         LOGGER.info('Finding exact matches!')
 
         exact_value_flag = -2
@@ -124,9 +141,6 @@ class Prediction:
         return ratio
 
     def _find_close_matches(self):
-        """
-        TODO: THIS IS SLOW
-        """
         threshold = 94
 
         LOGGER.info(f'Finding very close matches!')
@@ -153,8 +167,6 @@ class Prediction:
 
         number_of_rows = len(remaining)
 
-        # TODO - THIS IS SLOW
-        ########################################################################################################
         LOGGER.info('Encoding data for constructing the features!')
 
         encoding_type = s.NUMBER_OF_CHARACTERS_DATA_TYPE
@@ -163,22 +175,22 @@ class Prediction:
         title_number_of_characters = np.array(remaining[c.COLUMN_TRANSFORMED_TITLE].str.len(), dtype=encoding_type)
         truth_number_of_characters = np.array(
             remaining[c.COLUMN_MATCH_TRANSFORMED_TITLE].str.len(), dtype=encoding_type)
-        title_encoded = np.array(remaining[c.COLUMN_TRANSFORMED_TITLE].apply(
-            self.feature_engineering.encode_title).tolist(), dtype=encoding_type)
-        title_truth_encoded = np.array(remaining[c.COLUMN_MATCH_TRANSFORMED_TITLE].apply(
-            self.feature_engineering.encode_title).tolist(), dtype=encoding_type)
-        word_counter_encoded = np.array(remaining[c.COLUMN_MATCH_TRANSFORMED_TITLE].apply(
-            self.feature_engineering.encode_word_counter).tolist(), dtype=encoding_type)
+
+        title_encoded = np.vstack(
+            remaining[c.COLUMN_TEST_INDEX].apply(lambda x: self.mapping_title_encoding[x]).tolist())
+        title_truth_encoded = np.vstack(
+            remaining[c.COLUMN_MATCH_TITLE_ID].apply(lambda x: self.mapping_truth_title_encoding[x]).tolist())
+        truth_words_counts = np.vstack(
+            remaining[c.COLUMN_MATCH_TITLE_ID].apply(lambda x: self.mapping_truth_words_counts[x]).tolist())
 
         LOGGER.info('Data encoded!')
-        ########################################################################################################
 
         LOGGER.info(f'Constructing features!')
 
         features = np.zeros((number_of_rows, FEATURES_COUNT), dtype=float_type)
         dummy = np.zeros((FEATURES_COUNT,), dtype=encoding_type)
         construct_features(title_number_of_characters, truth_number_of_characters,
-                           title_encoded, title_truth_encoded, word_counter_encoded,
+                           title_encoded, title_truth_encoded, truth_words_counts,
                            self.feature_engineering.space_code, self.feature_engineering.number_of_truth_titles,
                            dummy, features)
 

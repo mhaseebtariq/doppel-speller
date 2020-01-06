@@ -16,6 +16,8 @@ DATA_TYPE_MAPPING = {
     c.DATA_TYPE_TEST: get_test_data,
     c.DATA_TYPE_SINGLE: get_single_data,
 }
+WORD_ENCODING_ZEROS = [0] * s.MAX_CHARACTERS_ALLOWED_IN_THE_TITLE
+WORD_COUNTER_ZEROS = [0] * s.NUMBER_OF_WORDS_FEATURES
 
 
 @numba.njit(numba.uint8(numba.uint8[:], numba.uint8[:]), fastmath=True)
@@ -67,7 +69,7 @@ signature = [
 @numba.guvectorize(signature,
                    '(),(),(l),(l),(m),(),(),(n)->(n)', fastmath=True, target='parallel')
 def construct_features(title_number_of_characters, truth_number_of_characters,
-                       title, title_truth, word_counter,
+                       title, title_truth, truth_words_counts,
                        space_code, number_of_truth_titles,
                        dummy, response):
     """
@@ -125,7 +127,7 @@ def construct_features(title_number_of_characters, truth_number_of_characters,
 
         best_ratios[word_index] = best_ratio
         word_lengths[word_index] = truth_word.shape[0]
-        idf_s[word_index] = math.log(number_of_truth_titles / word_counter[word_index])
+        idf_s[word_index] = math.log(number_of_truth_titles / truth_words_counts[word_index])
         reconstructed_title = np.concatenate(
             (reconstructed_title, best_match, np.array([space_code], dtype=s.NUMBER_OF_CHARACTERS_DATA_TYPE)))
 
@@ -247,16 +249,16 @@ class FeatureEngineering:
             set(list(evaluation_generated_index) + list(evaluation_negative_index) + list(evaluation_positive_index))))
 
     def encode_title(self, title):
-        max_allowed_characters = s.MAX_CHARACTERS_ALLOWED_IN_THE_TITLE
-        title = title.ljust(max_allowed_characters, s.R_FILL_CHARACTER)[:max_allowed_characters]
-        return np.array([self.encoding[x] for x in title], dtype=s.NUMBER_OF_CHARACTERS_DATA_TYPE)
+        return np.array(
+            (list(map(self.encoding.get, title)) + WORD_ENCODING_ZEROS)[:s.MAX_CHARACTERS_ALLOWED_IN_THE_TITLE],
+            dtype=s.NUMBER_OF_CHARACTERS_DATA_TYPE
+        )
 
-    def encode_word_counter(self, title):
-        words = title.split()[:s.NUMBER_OF_WORDS_FEATURES]
-        encoded = np.zeros((s.NUMBER_OF_WORDS_FEATURES,), dtype=np.uint32)
-        counts = [self.words_counter[x] for x in words]
-        encoded[:len(counts)] = counts
-        return encoded
+    def get_truth_words_counts(self, title):
+        return np.array(
+            (list(map(self.words_counter.get, title.split())) + WORD_COUNTER_ZEROS)[:s.NUMBER_OF_WORDS_FEATURES],
+            dtype=s.WORDS_COUNT_DATA_TYPE
+        )
 
     def generate_train_and_evaluation_data_sets(self):
         training_rows_final = self._prepare_training_input_data()
@@ -266,23 +268,20 @@ class FeatureEngineering:
         encoding_type = s.NUMBER_OF_CHARACTERS_DATA_TYPE
         float_type = s.ENCODING_FLOAT_TYPE
 
-        # TODO - THIS IS SLOW
-        ########################################################################################################
         LOGGER.info('Encoding data for constructing the features!')
 
         title_number_of_characters = np.array([len(x[1]) for x in training_rows_final], dtype=encoding_type)
         truth_number_of_characters = np.array([len(x[2]) for x in training_rows_final], dtype=encoding_type)
         kind = np.array([x[0] for x in training_rows_final], dtype=encoding_type)
         target = np.array([x[3] for x in training_rows_final], dtype=float_type)
-        title_encoded = np.array([self.encode_title(x[1]) for x in training_rows_final], dtype=encoding_type)
-        title_truth_encoded = np.array([self.encode_title(x[2]) for x in training_rows_final], dtype=encoding_type)
-        word_counter_encoded = np.array(
-            [self.encode_word_counter(x[2]) for x in training_rows_final], dtype=encoding_type)
+
+        title_encoded = np.vstack([self.encode_title(x[1]) for x in training_rows_final])
+        title_truth_encoded = np.vstack([self.encode_title(x[2]) for x in training_rows_final])
+        truth_words_counts = np.vstack([self.get_truth_words_counts(x[2]) for x in training_rows_final])
 
         del training_rows_final
 
         LOGGER.info('Data encoded!')
-        ########################################################################################################
 
         features = np.zeros((number_of_rows, FEATURES_COUNT), dtype=float_type)
         dummy = np.zeros((FEATURES_COUNT,), dtype=encoding_type)
@@ -290,7 +289,7 @@ class FeatureEngineering:
         LOGGER.info(f'Constructing features!')
 
         construct_features(title_number_of_characters, truth_number_of_characters,
-                           title_encoded, title_truth_encoded, word_counter_encoded,
+                           title_encoded, title_truth_encoded, truth_words_counts,
                            self.space_code, self.number_of_truth_titles,
                            dummy, features)
 
