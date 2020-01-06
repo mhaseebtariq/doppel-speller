@@ -202,7 +202,11 @@ class Prediction:
 
         LOGGER.info(f'Features (shape = {features.shape}) constructed!')
 
+        LOGGER.info('Calling model.predict()!')
         remaining.loc[:, c.COLUMN_PREDICTION] = self.model.predict(xgb.DMatrix(features))
+        LOGGER.info('Predictions generated!')
+
+        LOGGER.info('Saving predictions!')
 
         if single_prediction:
             max_prediction = max(remaining.loc[:, c.COLUMN_PREDICTION])
@@ -225,6 +229,8 @@ class Prediction:
         del remaining
 
         self._update_matched_so_far()
+
+        LOGGER.info('Predictions saved!')
 
     def _update_matched_so_far(self):
         filter_ = self.predictions[c.COLUMN_BEST_MATCH_ID] != s.TRAIN_NOT_FOUND_VALUE
