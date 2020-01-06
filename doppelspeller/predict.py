@@ -82,6 +82,10 @@ class Prediction:
         return self.model.predict(d_test)
 
     def _find_exact_matches(self):
+        """
+        TODO: THIS IS SLOW
+        :return:
+        """
         LOGGER.info('Finding exact matches!')
 
         exact_value_flag = -2
@@ -131,6 +135,9 @@ class Prediction:
         return ratio
 
     def _find_close_matches(self):
+        """
+        TODO: THIS IS SLOW
+        """
         threshold = 94
 
         LOGGER.info(f'Finding very close matches!')
@@ -164,6 +171,10 @@ class Prediction:
 
         number_of_rows = len(remaining)
 
+        # TODO - THIS IS SLOW
+        ########################################################################################################
+        LOGGER.info('Encoding data for constructing the features!')
+
         encoding_type = s.NUMBER_OF_CHARACTERS_DATA_TYPE
         float_type = s.ENCODING_FLOAT_TYPE
 
@@ -177,12 +188,19 @@ class Prediction:
         word_counter_encoded = np.array(remaining[c.COLUMN_MATCH_TRANSFORMED_TITLE].apply(
             self.feature_engineering.encode_word_counter).tolist(), dtype=encoding_type)
 
+        LOGGER.info('Data encoded!')
+        ########################################################################################################
+
+        LOGGER.info(f'Constructing features!')
+
         features = np.zeros((number_of_rows, FEATURES_COUNT), dtype=float_type)
         dummy = np.zeros((FEATURES_COUNT,), dtype=encoding_type)
         construct_features(title_number_of_characters, truth_number_of_characters,
                            title_encoded, title_truth_encoded, word_counter_encoded,
                            self.feature_engineering.space_code, self.feature_engineering.number_of_truth_titles,
                            dummy, features)
+
+        LOGGER.info(f'Features (shape = {features.shape}) constructed!')
 
         remaining.loc[:, c.COLUMN_PREDICTION] = self.model.predict(xgb.DMatrix(features))
 

@@ -61,13 +61,13 @@ class MatchMaker:
         self.n_grams_decoding = self._get_encoding_mappings()
         self.n_grams_encoding = {v: k for k, v in self.n_grams_decoding.items()}
 
-        LOGGER.info(f'[{self.__class__.__name__}] Constructing sparse matrices!')
-
         self.matrix = self._construct_sparse_matrix(self.data)
         self.matrix_truth = self._construct_sparse_matrix(self.truth_data, transpose=True)
         self.matrix_non_zero_columns = self._get_matrix_non_zero_columns()
         self.matrix_truth_non_zero_columns_and_values = self._get_matrix_truth_non_zero_columns_and_values()
         self.sums_matrix_truth = self._get_sums_matrix_truth()
+
+        LOGGER.info(f'[{self.__class__.__name__}] Loaded pre-requisite data!')
 
     def _get_matrix_non_zero_columns(self):
         matrix_non_zero_columns = numba.typed.List()
@@ -111,6 +111,8 @@ class MatchMaker:
         return indexes, uniqueness_values
 
     def _construct_sparse_matrix(self, data, transpose=False):
+        LOGGER.info(f'[{self.__class__.__name__}] Constructing sparse matrix!')
+
         matrix = lil_matrix((len(data), len(self.n_grams_encoding)), dtype=s.ENCODING_FLOAT_TYPE)
         for index, value in enumerate(data[c.COLUMN_N_GRAMS]):
             indexes, uniqueness_values = self._get_encoding_values(value)
@@ -118,6 +120,8 @@ class MatchMaker:
 
         if transpose:
             return lil_matrix(matrix.T, dtype=s.ENCODING_FLOAT_TYPE)
+
+        LOGGER.info(f'[{self.__class__.__name__}] Constructed sparse matrix - {matrix.shape}!')
 
         return matrix
 

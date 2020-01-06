@@ -70,6 +70,9 @@ def construct_features(title_number_of_characters, truth_number_of_characters,
                        title, title_truth, word_counter,
                        space_code, number_of_truth_titles,
                        dummy, response):
+    """
+    Approximately 50,000 features constructed per second
+    """
 
     title = title[:title_number_of_characters]
     title_truth = title_truth[:truth_number_of_characters]
@@ -258,14 +261,14 @@ class FeatureEngineering:
     def generate_train_and_evaluation_data_sets(self):
         training_rows_final = self._prepare_training_input_data()
 
-        LOGGER.info('Preparing features!')
-
-        # TODO: Need optimization
-
         number_of_rows = len(training_rows_final)
 
         encoding_type = s.NUMBER_OF_CHARACTERS_DATA_TYPE
         float_type = s.ENCODING_FLOAT_TYPE
+
+        # TODO - THIS IS SLOW
+        ########################################################################################################
+        LOGGER.info('Encoding data for constructing the features!')
 
         title_number_of_characters = np.array([len(x[1]) for x in training_rows_final], dtype=encoding_type)
         truth_number_of_characters = np.array([len(x[2]) for x in training_rows_final], dtype=encoding_type)
@@ -277,6 +280,9 @@ class FeatureEngineering:
             [self.encode_word_counter(x[2]) for x in training_rows_final], dtype=encoding_type)
 
         del training_rows_final
+
+        LOGGER.info('Data encoded!')
+        ########################################################################################################
 
         features = np.zeros((number_of_rows, FEATURES_COUNT), dtype=float_type)
         dummy = np.zeros((FEATURES_COUNT,), dtype=encoding_type)
