@@ -93,11 +93,16 @@ def get_predictions_accuracy(**kwargs):
     import doppelspeller.settings as s
 
     try:
-        actual = pd.read_csv(
-            s.TEST_WITH_ACTUALS_FILE, sep=s.TEST_FILE_DELIMITER).to_dict()[s.TEST_WITH_ACTUALS_TITLE_ID]
+        actual = pd.read_csv(s.TEST_WITH_ACTUALS_FILE, sep=s.TEST_FILE_DELIMITER)
     except:  # noqa
         raise Exception(f'Error reading {s.TEST_WITH_ACTUALS_FILE} (TEST_WITH_ACTUAL_FILE in settings.py)')
-    predictions = pd.read_csv(s.FINAL_OUTPUT_FILE, sep=s.TEST_FILE_DELIMITER).to_dict()[c.COLUMN_TITLE_ID]
+    predictions = pd.read_csv(s.FINAL_OUTPUT_FILE, sep=s.TEST_FILE_DELIMITER)
+
+    actual.set_index(c.COLUMN_TEST_INDEX, inplace=True)
+    predictions.set_index(c.COLUMN_TEST_INDEX, inplace=True)
+
+    actual = actual.to_dict()[s.TEST_WITH_ACTUALS_TITLE_ID]
+    predictions = predictions.to_dict()[c.COLUMN_TITLE_ID]
 
     true_positives, true_negatives, false_positives, false_negatives = 0, 0, 0, 0
     for key, value in actual.items():
