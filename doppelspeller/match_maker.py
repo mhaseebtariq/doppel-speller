@@ -119,7 +119,7 @@ class MatchMaker:
             matrix[index, indexes] = uniqueness_values
 
         if transpose:
-            return lil_matrix(matrix.T, dtype=s.ENCODING_FLOAT_TYPE)
+            matrix = lil_matrix(matrix.T, dtype=s.ENCODING_FLOAT_TYPE)
 
         LOGGER.info(f'[{self.__class__.__name__}] Constructed sparse matrix - {matrix.shape}!')
 

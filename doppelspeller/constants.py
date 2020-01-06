@@ -31,11 +31,6 @@ COLUMN_GENERATED_MISSPELLED_TITLE = 'generated_misspelled_title'
 COLUMN_TARGET = 'target'
 COLUMN_RECONSTRUCTED_SCORE = 'reconstructed_score'
 
-COLUMN_TITLE_TO_MATCH = 'title_to_match'
-COLUMN_BEST_MATCH = 'best_match'
-COLUMN_BEST_MATCH_ID = 'best_match_id'
-COLUMN_BEST_MATCH_PROBABILITY = 'best_match_probability'
-
 COLUMN_MATCH_TITLE_ID = 'match_title_id'
 COLUMN_MATCH_TRANSFORMED_TITLE = 'match_transformed_title'
 COLUMN_LEVENSHTEIN_RATIO = 'levenshtein_ratio'
