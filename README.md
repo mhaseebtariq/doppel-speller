@@ -53,7 +53,7 @@ True Negatives          3751
 False Positives         57
 False Negatives         249 ⃰
 ```
-` ⃰` The model is biased against "false positives" therefore, there are more "false negatives".
+` ⃰` The model is biased against "false positives", therefore, there are more "false negatives".
 This can be affected by tweaking the `FALSE_POSITIVE_PENALTY_FACTOR` setting in [settings.py](./doppelspeller/settings.py)
 
 #### `make closest-search-single-title title='PRO teome plc SCIs'`
