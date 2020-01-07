@@ -30,7 +30,7 @@ Run the following cli's in order:
 
 #### `make train-model`
 Alias of `train_model` in [cli.py](./doppelspeller/cli.py)
-* Prepares training data for a `OneVsRest[*]Classifier` - "rest" being the nearest "n" (based on the Jaccard distance) matches
+* Prepares training data for a `OneVsRest[ ⃰]Classifier` - "rest" being the nearest "n" (based on the Jaccard distance) matches
 * Each "positive" match is trained along with the nearest n matches, that do not match with the title
 * Generates `train` and `evaluation` data sets for the `train-model` cli
 * Main features generation method: `construct_features` (in [feature_engineering.py](./doppelspeller/feature_engineering.py))
@@ -51,9 +51,9 @@ Alias of `generate_predictions` in [cli.py](./doppelspeller/cli.py)
 True Positives          5943
 True Negatives          3751
 False Positives         57
-False Negatives         249 [*]
+False Negatives         249 ⃰
 ```
-[*] The model is biased against "false positives" therefore, there are more "false negatives".
+[ ⃰] The model is biased against "false positives" therefore, there are more "false negatives".
 This can be affected by tweaking the `FALSE_POSITIVE_PENALTY_FACTOR` setting in [settings.py](./doppelspeller/settings.py)
 
 #### `make closest-search-single-title title='PRO teome plc SCIs'`
