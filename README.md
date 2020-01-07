@@ -5,7 +5,9 @@ using a combination of Machine Learning and NLP techniques.<br/><br/>
 ![Project description](./description.jpg)<br/><br/>
 #### Challenges:
 * Matching search terms in a database of millions of "true" titles (for example, company names) could be computationally expensive
+    - For a data set, the current implementation matches 100,000 titles against 500,000 true titles in around 10 minutes - i.e. around 10,000 matches per minute
 * Human beings can be really creative, even come up with new ways, to misspell words in a title
+    - For the "example" data set - see the [error matrix](#error-matrix)
 
 ## Setup
 * **Pre-requisites**:
@@ -42,7 +44,9 @@ Alias of `generate_predictions` in [cli.py](./doppelspeller/cli.py)
 * Then the nearest "n" matches per (remaining) title are found using the the Jaccard (modified) distance
 * Next, the nearest matches are "fuzzy" matched with each title
 * Finally, the trained model is used to match the remaining titles
-* Test set predictions accuracy (run `make get-predictions-accuracy` to calculate the following):
+* Test set predictions accuracy (run `make get-predictions-accuracy` to calculate the following)
+
+##### Error matrix
 ```
 True Positives          5928
 True Negatives          3920

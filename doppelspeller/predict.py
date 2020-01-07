@@ -135,7 +135,7 @@ class Prediction:
 
     @staticmethod
     def _get_levenshtein_ratio(x, y, threshold):
-        ratio = levenshtein_ratio(x, y)
+        return levenshtein_ratio(x, y)
         if ratio <= threshold:
             return levenshtein_token_sort_ratio(x, y)
         return ratio
