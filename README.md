@@ -46,7 +46,7 @@ Alias of `generate_predictions` in [cli.py](./doppelspeller/cli.py)
 * Finally, the trained model is used to match the remaining titles
 * Test set predictions accuracy (run `make get-predictions-accuracy` to calculate the following)
 
-##### Error matrix
+##### Error matrix:
 ```
 True Positives          5928
 True Negatives          3920
