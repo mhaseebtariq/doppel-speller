@@ -22,7 +22,7 @@ KEYBOARD_CARTESIAN = {
 
 
 def get_closest_matches_per_training_row(train_data, truth_data):
-    match_maker = MatchMaker(train_data, truth_data, s.TOP_N_RESULTS_TO_FIND_FOR_TRAINING)
+    match_maker = MatchMaker(train_data, truth_data, s.TOP_N_RESULTS_TO_FIND_FOR_PREDICTING)
 
     LOGGER.info('Preparing training features data!')
 
@@ -35,7 +35,7 @@ def get_closest_matches_per_training_row(train_data, truth_data):
             LOGGER.info(f'Processed {row_number} of {number_training_rows} [{elapsed}]!')
             batch_time = time.time()
 
-        matches = match_maker.get_closest_matches(row_number)
+        matches = random.sample(match_maker.get_closest_matches(row_number), s.TOP_N_RESULTS_TO_FIND_FOR_TRAINING)
 
         if title_id == s.TRAIN_NOT_FOUND_VALUE:
             closest_matches_per_training_row[title_id][row_number] = matches

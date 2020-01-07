@@ -34,5 +34,5 @@ generate-predictions:
 get-predictions-accuracy:
 	docker-compose up -d && docker exec -t doppelspeller doppel-speller -vv get-predictions-accuracy
 
-extensive-search-single-title:
-	docker-compose up -d && docker exec -t doppelspeller doppel-speller -vv extensive-search-single-title --title-to-search="$(title)"
+closest-search-single-title:
+	docker-compose up -d && docker exec -t doppelspeller doppel-speller -vv closest-search-single-title --title-to-search="$(title)"

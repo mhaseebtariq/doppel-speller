@@ -64,8 +64,8 @@ def generate_predictions(**kwargs):
 @cli.command()
 @click.option('-t', '--title-to-search', 'title')
 @time_usage
-def extensive_search_single_title(**kwargs):
-    """Extensive search single title!"""
+def closest_search_single_title(**kwargs):
+    """Closest search single title!"""
     import doppelspeller.constants as c
     from doppelspeller.predict import Prediction
 

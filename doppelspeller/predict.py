@@ -240,9 +240,6 @@ class Prediction:
 
     def generate_test_predictions(self, single_prediction=False):
         top_n = s.TOP_N_RESULTS_TO_FIND_FOR_PREDICTING
-        if single_prediction:
-            # TODO: Single predictions are wrong
-            top_n = s.TOP_N_RESULTS_TO_FIND_FOR_EXTENSIVE_SEARCH
 
         self.matched_so_far = []
         self.match_maker = MatchMaker(self.data, self.truth_data, top_n)
