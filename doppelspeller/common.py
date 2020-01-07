@@ -18,24 +18,25 @@ KEEP_REGEX = re.compile(r'[a-zA-Z0-9\s]')
 
 
 def transform_title(title):
-    # Remove accents
+    # Remove accents and convert to lower case
     text = unicodedata.normalize('NFD', title)
     text = text.encode('ascii', 'ignore').decode('utf-8').lower().replace('-', ' ')
+    # Extract only alphanumeric characters
     text = ''.join(KEEP_REGEX.findall(text))
-    # Extract only alphanumeric characters / convert to lower case
+    # Replace multiple spaces with single space
     text = SUBSTITUTE_REGEX.sub(' ', text).strip()
     number_of_characters = len(text)
     text = text[: s.MAX_CHARACTERS_ALLOWED_IN_THE_TITLE].strip()
 
     if number_of_characters < s.N_GRAMS:
         LOGGER.warning(
-            f"Titles less than length {s.N_GRAMS} found, after transforming the title. Pre-pending 0's!\n"
+            f"Title ({title}) less than length {s.N_GRAMS} found, after transforming the title. Pre-pending 0's!\n"
         )
         return text.rjust(s.N_GRAMS, '0')
 
     elif number_of_characters > s.MAX_CHARACTERS_ALLOWED_IN_THE_TITLE:
         LOGGER.warning(
-            'Titles greater than length 256 are not allowed. Trimming the title!\n'
+            f'Titles greater than length 256 are not allowed. Trimming the title ({title[:10]}...)!\n'
             'This is because of the data types set in FEATURES_TYPES (settings.py: NUMBER_OF_CHARACTERS_DATA_TYPE).'
         )
 

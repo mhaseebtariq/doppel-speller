@@ -48,10 +48,10 @@ Alias of `generate_predictions` in [cli.py](./doppelspeller/cli.py)
 
 ##### Error matrix:
 ```
-True Positives          5943
-True Negatives          3751
-False Positives         57
-False Negatives         249 ⃰
+True Positives          5954
+True Negatives          3731
+False Positives         46
+False Negatives         269 ⃰
 ```
 `*` The model is biased against "false positives", therefore, there are more "false negatives".
 This can be affected by tweaking the `FALSE_POSITIVE_PENALTY_FACTOR` setting in [settings.py](./doppelspeller/settings.py)

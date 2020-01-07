@@ -17,7 +17,7 @@ LOGGER = logging.getLogger(__name__)
 def fast_jaccard(number_of_truth_titles, max_intersection_possible, non_zero_columns_for_the_row,
                  matrix_truth_non_zero_columns_and_values, sums_matrix_truth):
     """
-    TODO
+    Calculate Jaccard distance using matrix operations.
     """
     scores = np.zeros((number_of_truth_titles,), dtype=s.ENCODING_FLOAT_TYPE)
     for non_zero_column in non_zero_columns_for_the_row:

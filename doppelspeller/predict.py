@@ -84,14 +84,6 @@ class Prediction:
 
         LOGGER.info(f'Matched {len(self.matched_so_far)} titles so far!')
 
-    def _predict(self, prediction_features):
-        prediction_features_set = np.array(prediction_features.tolist(), dtype=np.float16)
-        features_names = list(prediction_features.dtype.names)
-        del prediction_features
-        d_test = xgb.DMatrix(prediction_features_set, feature_names=features_names)
-
-        return self.model.predict(d_test)
-
     def _find_exact_matches(self):
         LOGGER.info('Finding exact matches!')
 

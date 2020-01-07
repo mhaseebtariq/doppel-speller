@@ -21,7 +21,7 @@ WORD_COUNTER_ZEROS = [0] * s.NUMBER_OF_WORDS_FEATURES
 
 
 @numba.njit(numba.uint8(numba.uint8[:], numba.uint8[:]), fastmath=True)
-def fast_levenshtein(seq1, seq2):
+def fast_levenshtein_ratio(seq1, seq2):
     length_x = seq1.shape[0]
     length_y = seq2.shape[0]
     total_length = length_x + length_y
@@ -81,7 +81,7 @@ def construct_features(title_number_of_characters, truth_number_of_characters,
 
     title_number_of_words = title[title == space_code].shape[0] + 1
     truth_number_of_words = title_truth[title_truth == space_code].shape[0] + 1
-    lev_ratio = fast_levenshtein(title, title_truth)
+    lev_ratio = fast_levenshtein_ratio(title, title_truth)
 
     title_wo_spaces = title[title != space_code]
 
@@ -120,7 +120,7 @@ def construct_features(title_number_of_characters, truth_number_of_characters,
             if possible_word.shape[0] == 0:
                 break
 
-            possible_word_lev_ratio = fast_levenshtein(possible_word, truth_word)
+            possible_word_lev_ratio = fast_levenshtein_ratio(possible_word, truth_word)
             if possible_word_lev_ratio > best_ratio:
                 best_ratio = int(possible_word_lev_ratio)
                 best_match = possible_word
@@ -135,7 +135,8 @@ def construct_features(title_number_of_characters, truth_number_of_characters,
     ranks_idf_s = 1 + ((np.nanmax(idf_s) - idf_s) / truth_number_of_words)
 
     # Removing first and last space
-    reconstructed_lev_ratio = fast_levenshtein(reconstructed_title[1: reconstructed_title.shape[0] - 1], title_truth)
+    reconstructed_lev_ratio = fast_levenshtein_ratio(
+        reconstructed_title[1: reconstructed_title.shape[0] - 1], title_truth)
 
     basic_features = np.array([
         title_number_of_characters, truth_number_of_characters,
