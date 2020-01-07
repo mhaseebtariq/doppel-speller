@@ -34,7 +34,7 @@ Alias of `train_model` in [cli.py](./doppelspeller/cli.py)
 * Each "positive" match is trained along with the nearest n matches, that do not match with the title
 * Generates `train` and `evaluation` data sets for the `train-model` cli
 * Main features generation method: `construct_features` (in [feature_engineering.py](./doppelspeller/feature_engineering.py))
-* XGBoost training output: `train-auc:0.999995	evaluation-auc:0.999747	train-custom-error:177	evaluation-custom-error:193`
+* XGBoost training output: `train-auc:0.999979	evaluation-auc:0.999964	train-custom-error:225	evaluation-custom-error:102`
 * See the definition of `custom_error` in [train.py](./doppelspeller/train.py)
     - Also, the custom objective function `weighted_log_loss`
 
@@ -48,11 +48,13 @@ Alias of `generate_predictions` in [cli.py](./doppelspeller/cli.py)
 
 ##### Error matrix:
 ```
-True Positives          5928
-True Negatives          3920
-False Positives         72
-False Negatives         80
+True Positives          5943
+True Negatives          3751
+False Positives         57
+False Negatives         249 [*]
 ```
+[*] The model is biased against "false positives" therefore, there are more "false negatives".
+This can be affected by tweaking the `FALSE_POSITIVE_PENALTY_FACTOR` setting in [settings.py](./doppelspeller/settings.py)
 
 #### `make closest-search-single-title title='PRO teome plc SCIs'`
 Alias of `closest_search_single_title` in [cli.py](./doppelspeller/cli.py)
