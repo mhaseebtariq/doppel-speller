@@ -100,12 +100,13 @@ class Prediction:
             lambda x: self.truth_data_mapping_reversed.get(x, exact_value_flag))
 
         test_data_filtered = self.data.loc[self.data[c.COLUMN_EXACT] != exact_value_flag, :].copy(deep=True)
-        test_data_filtered.loc[:, c.COLUMN_PREDICTION] = 1.0
-        test_data_filtered.loc[:, c.COLUMN_MATCH_TRANSFORMED_TITLE] = test_data_filtered.loc[
-                                                                      :, c.COLUMN_TRANSFORMED_TITLE]
-        test_data_filtered.rename(columns={c.COLUMN_EXACT: c.COLUMN_MATCH_TITLE_ID}, inplace=True)
+        if not test_data_filtered.empty:
+            test_data_filtered.loc[:, c.COLUMN_PREDICTION] = 1.0
+            test_data_filtered.loc[:, c.COLUMN_MATCH_TRANSFORMED_TITLE] = test_data_filtered.loc[
+                                                                          :, c.COLUMN_TRANSFORMED_TITLE]
+            test_data_filtered.rename(columns={c.COLUMN_EXACT: c.COLUMN_MATCH_TITLE_ID}, inplace=True)
 
-        self._save_prediction(test_data_filtered)
+            self._save_prediction(test_data_filtered)
 
         del test_data_filtered
 
@@ -135,7 +136,7 @@ class Prediction:
 
     @staticmethod
     def _get_levenshtein_ratio(x, y, threshold):
-        return levenshtein_ratio(x, y)
+        ratio = levenshtein_ratio(x, y)
         if ratio <= threshold:
             return levenshtein_token_sort_ratio(x, y)
         return ratio
@@ -156,9 +157,10 @@ class Prediction:
 
         matches = remaining.loc[indexes_with_max_ratios, :]
         matches = matches.loc[matches[c.COLUMN_LEVENSHTEIN_RATIO] > threshold, :]
-        matches.loc[:, c.COLUMN_PREDICTION] = 1.0
+        if not matches.empty:
+            matches.loc[:, c.COLUMN_PREDICTION] = 1.0
 
-        self._save_prediction(matches)
+            self._save_prediction(matches)
 
         return remaining.loc[~(remaining[c.COLUMN_TEST_INDEX].isin(matches[c.COLUMN_TEST_INDEX].tolist())), :]
 
@@ -205,13 +207,14 @@ class Prediction:
         if single_prediction:
             max_prediction = max(remaining.loc[:, c.COLUMN_PREDICTION])
             matches = remaining.loc[remaining[c.COLUMN_PREDICTION] == max_prediction, :]
+            self._save_prediction(matches)
         else:
             indexes_with_max_predictions = remaining.groupby(
                 [c.COLUMN_TEST_INDEX])[c.COLUMN_PREDICTION].transform(max) == remaining[c.COLUMN_PREDICTION]
             matches = remaining.loc[indexes_with_max_predictions, :]
             matches = matches.loc[matches[c.COLUMN_PREDICTION] > s.PREDICTION_PROBABILITY_THRESHOLD, :]
-
-        self._save_prediction(matches)
+            if not matches.empty:
+                self._save_prediction(matches)
 
         del remaining
 
@@ -238,10 +241,11 @@ class Prediction:
     def generate_test_predictions(self, single_prediction=False):
         top_n = s.TOP_N_RESULTS_TO_FIND_FOR_PREDICTING
         if single_prediction:
-            top_n = self.feature_engineering.number_of_truth_titles
+            # TODO: Single predictions are wrong
+            top_n = s.TOP_N_RESULTS_TO_FIND_FOR_EXTENSIVE_SEARCH
+
         self.matched_so_far = []
         self.match_maker = MatchMaker(self.data, self.truth_data, top_n)
-        self.feature_engineering = FeatureEngineering(c.DATA_TYPE_TEST)
         self.truth_data_mapping, self.truth_data_mapping_reversed = self._get_truth_data_mappings(self.truth_data)
 
         self._find_exact_matches()

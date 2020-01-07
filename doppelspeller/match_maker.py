@@ -31,7 +31,7 @@ def fast_jaccard(number_of_truth_titles, max_intersection_possible, non_zero_col
 def fast_top_k(array, k):
     """
     * 50x faster than np.argsort
-    * Not sorted on importance
+    * Not sorted
     """
     sorted_indexes = np.zeros((k,), dtype=s.ENCODING_FLOAT_TYPE)
     minimum_index = 0
