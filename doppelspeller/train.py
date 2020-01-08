@@ -82,21 +82,15 @@ def train_model():
     features = FeatureEngineering(c.DATA_TYPE_TRAIN)
     train, train_target, evaluation, evaluation_target = features.generate_train_and_evaluation_data_sets()
 
-    train_set = np.array(train.tolist(), dtype=np.float16)
-    del train
-
-    evaluation_set = np.array(evaluation.tolist(), dtype=np.float16)
-    del evaluation
-
-    d_train = xgb.DMatrix(train_set, label=train_target)
-    d_evaluation = xgb.DMatrix(evaluation_set, label=evaluation_target)
+    d_train = xgb.DMatrix(train, label=train_target)
+    d_evaluation = xgb.DMatrix(evaluation, label=evaluation_target)
 
     scale_pos_weight = sum(train_target == 0) / sum(train_target == 1)
 
     watch_list = [(d_train, 'train'), (d_evaluation, 'evaluation')]
     params = {
         'params': {
-            'max_depth': 5,
+            'max_depth': 4,
             'eta': 0.1,
             'nthread': 4,  # TODO: Use dynamic settings
             'min_child_weight': 1,

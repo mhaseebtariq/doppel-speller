@@ -7,7 +7,7 @@ using a combination of Machine Learning and NLP techniques.<br/><br/>
 * Matching search terms in a database of millions of "true" titles (for example, company names) could be computationally expensive
     - For a data set, the current implementation matches 100,000 titles against 500,000 true titles in around 10 minutes - i.e. around 10,000 matches per minute
 * Human beings can be really creative, even come up with new ways, to misspell words in a title
-    - For the "example" data set - see the [error matrix](#error-matrix)
+    - For the "example" data set - see the [error matrix](#accuracy-on-the-evaluation-data-set-for-the-example-data)
 
 ## Setup
 * **Pre-requisites**:
@@ -37,10 +37,10 @@ Alias of `train_model` in [cli.py](./doppelspeller/cli.py)
 * XGBoost training output: `train-auc:0.999979	evaluation-auc:0.999964	train-custom-error:225	evaluation-custom-error:102`
 * Evaluation set error matrix:
 ```
-True Positives          7053
-True Negatives          18687
-False Positives         15
-False Negatives         33
+True Positives          7068
+True Negatives          18690
+False Positives         5
+False Negatives         25
 ```
 * See the definition of `custom_error` in [train.py](./doppelspeller/train.py)
     - Also, the custom objective function `weighted_log_loss`

@@ -206,6 +206,7 @@ class Prediction:
         LOGGER.info(f'Features (shape = {features.shape}) constructed!')
 
         LOGGER.info('Calling model.predict()!')
+
         remaining.loc[:, c.COLUMN_PREDICTION] = self.model.predict(xgb.DMatrix(features),
                                                                    ntree_limit=self.model.best_ntree_limit)
         LOGGER.info('Predictions generated!')
