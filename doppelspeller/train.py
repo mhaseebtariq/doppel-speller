@@ -54,6 +54,28 @@ def get_xgb_feats_importance(model):
     return features_importance
 
 
+def get_evaluation_error_matrix(model, evaluation_data, evaluation_target):
+    predictions = model.predict(evaluation_data, ntree_limit=model.best_ntree_limit)
+    predictions[predictions > s.PREDICTION_PROBABILITY_THRESHOLD] = 1
+    predictions[predictions <= s.PREDICTION_PROBABILITY_THRESHOLD] = 0
+
+    true_positives, true_negatives, false_positives, false_negatives = 0, 0, 0, 0
+    for index, actual_value in enumerate(evaluation_target):
+        prediction_value = predictions[index]
+        if prediction_value == 0:
+            if actual_value == prediction_value:
+                true_negatives += 1
+            else:
+                false_negatives += 1
+        else:
+            if actual_value == prediction_value:
+                true_positives += 1
+            else:
+                false_positives += 1
+
+    return true_positives, true_negatives, false_positives, false_negatives
+
+
 def train_model():
     LOGGER.info('Generating train and evaluation data-sets!')
 
@@ -98,6 +120,15 @@ def train_model():
     )
 
     features_importance_data = get_xgb_feats_importance(model)
+
+    true_positives, true_negatives, false_positives, false_negatives = get_evaluation_error_matrix(
+        model, d_evaluation, evaluation_target)
+    LOGGER.info(f"""\n\nEvaluation Data Error Matrix:\n
+        True Positives          {true_positives}
+        True Negatives          {true_negatives}
+        False Positives         {false_positives}
+        False Negatives         {false_negatives}\n
+        """)
 
     with open(s.MODEL_DUMP_FILE, 'wb') as file_object:
         pickle.dump(model, file_object)

@@ -104,25 +104,29 @@ def get_predictions_accuracy(**kwargs):
     actual = actual.to_dict()[s.TEST_WITH_ACTUALS_TITLE_ID]
     predictions = predictions.to_dict()[c.COLUMN_TITLE_ID]
 
-    true_positives, true_negatives, false_positives, false_negatives = 0, 0, 0, 0
-    for key, value in actual.items():
-        value_output = predictions[key]
-        if value == -1:
-            if value_output == -1:
-                true_negatives += 1
+    correctly_matched_existing, correctly_matched_non_existing = 0, 0
+    incorrectly_matched_existing, incorrectly_matched_non_existing = 0, 0
+    for key, actual_value in actual.items():
+        prediction_value = predictions[key]
+        if prediction_value == -1:
+            if actual_value == prediction_value:
+                correctly_matched_non_existing += 1
             else:
-                false_negatives += 1
+                incorrectly_matched_non_existing += 1
         else:
-            if value_output == value:
-                true_positives += 1
+            if actual_value == prediction_value:
+                correctly_matched_existing += 1
             else:
-                false_positives += 1
+                incorrectly_matched_existing += 1
 
     LOGGER.info(f"""\n
-    True Positives          {true_positives}
-    True Negatives          {true_negatives}
-    False Positives         {false_positives}
-    False Negatives         {false_negatives}
+    Correctly matched titles            {correctly_matched_existing}
+    Incorrectly matched titles          {incorrectly_matched_existing}
+    Correctly marked as not-found       {correctly_matched_non_existing}
+    Incorrectly marked as not-found     {incorrectly_matched_non_existing}
+
+    Custom Error                        {incorrectly_matched_non_existing + (incorrectly_matched_existing * 5)}
+    [custom_error = number_of_incorrectly_matched_non_existing + (number_of_incorrectly_matched_existing * 5)]
     """)
 
-    return true_positives, true_negatives, false_positives, false_negatives
+    return True

@@ -7,14 +7,16 @@ import numpy as np
 import doppelspeller.settings as s
 import doppelspeller.constants as c
 from doppelspeller.feature_engineering_prepare import get_closest_matches_per_training_row, generate_misspelled_name
-from doppelspeller.common import get_ground_truth, get_train_data, get_test_data, get_words_counter, get_single_data
+from doppelspeller.common import (
+    get_ground_truth, get_train_data, get_test_data, get_words_counter, get_data_for_one_title
+)
 
 LOGGER = logging.getLogger(__name__)
 
 DATA_TYPE_MAPPING = {
     c.DATA_TYPE_TRAIN: get_train_data,
     c.DATA_TYPE_TEST: get_test_data,
-    c.DATA_TYPE_SINGLE: get_single_data,
+    c.DATA_TYPE_SINGLE: get_data_for_one_title,
 }
 WORD_ENCODING_ZEROS = [0] * s.MAX_CHARACTERS_ALLOWED_IN_THE_TITLE
 WORD_COUNTER_ZEROS = [0] * s.NUMBER_OF_WORDS_FEATURES
@@ -67,13 +69,15 @@ signature = [
      numba.uint8[:], numba.float32[:])
 ]
 @numba.guvectorize(signature,
-                   '(),(),(l),(l),(m),(),(),(n)->(n)', fastmath=True, target='parallel')
+                   '(),(),(l),(l),(m),(),(),(n)->(n)', fastmath=True, target='parallel', forceobj=False)
 def construct_features(title_number_of_characters, truth_number_of_characters,
                        title, title_truth, truth_words_counts,
                        space_code, number_of_truth_titles,
                        dummy, response):
     """
-    Approximately 50,000 features constructed per second
+    The main (vectorized) function to generate features for pairs of title and title_truth.
+
+    Can process approximately 50,000 rows per seconds!
     """
 
     title = title[:title_number_of_characters]
@@ -289,10 +293,13 @@ class FeatureEngineering:
 
         LOGGER.info(f'Constructing features!')
 
-        construct_features(title_number_of_characters, truth_number_of_characters,
-                           title_encoded, title_truth_encoded, truth_words_counts,
-                           self.space_code, self.number_of_truth_titles,
-                           dummy, features)
+        # http://numba.pydata.org/numba-doc/latest/reference/fpsemantics.html#warnings-and-errors
+        # Ignoring an invalid warning, as it can not be reproduced with forceobj=True
+        with np.errstate(all='ignore'):
+            construct_features(title_number_of_characters, truth_number_of_characters,
+                               title_encoded, title_truth_encoded, truth_words_counts,
+                               self.space_code, self.number_of_truth_titles,
+                               dummy, features)
 
         LOGGER.info(f'Features (shape = {features.shape}) constructed!')
 

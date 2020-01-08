@@ -110,12 +110,13 @@ class Prediction:
         return self.truth_data_mapping[match_id]
 
     def _combine_titles_with_matches(self):
-        remaining = self.data.loc[~self.data.index.isin(self.matched_so_far), :].copy(deep=True)
-        remaining = remaining.loc[:, [c.COLUMN_TEST_INDEX, c.COLUMN_TRANSFORMED_TITLE]]
+        remaining = self.data.loc[~self.data.index.isin(self.matched_so_far),
+                                  [c.COLUMN_TEST_INDEX, c.COLUMN_TRANSFORMED_TITLE]].copy(deep=True)
+
         nearest_matches = {row_number: self.match_maker.get_closest_matches(row_number)
                            for row_number in remaining.index}
 
-        remaining = remaining.loc[remaining.index.repeat(self.match_maker.top_n)]
+        remaining = remaining.reindex(remaining.index.repeat(self.match_maker.top_n))
         remaining.reset_index(drop=True, inplace=True)
 
         matches_title_ids = map(lambda x, y: self._get_nearest_match_title_id(x, y, nearest_matches),
@@ -127,7 +128,18 @@ class Prediction:
         return remaining
 
     @staticmethod
-    def _get_levenshtein_ratio(x, y, threshold):
+    def _get_levenshtein_deletion_ratio(x, y):
+        length_x, length_y = len(x), len(y)
+        total_length = length_x + length_y
+        delta = abs(length_x - length_y)
+        return ((total_length - delta) / total_length) * 100
+
+    @classmethod
+    def _get_levenshtein_ratio(cls, x, y, threshold):
+        # We only consider the levenshtein_ratio for "matching" if it's > threshold
+        if cls._get_levenshtein_deletion_ratio(x, y) < threshold:
+            return 0
+
         ratio = levenshtein_ratio(x, y)
         if ratio <= threshold:
             return levenshtein_token_sort_ratio(x, y)
@@ -144,11 +156,10 @@ class Prediction:
                              remaining[c.COLUMN_TRANSFORMED_TITLE], remaining[c.COLUMN_MATCH_TRANSFORMED_TITLE])
         remaining.loc[:, c.COLUMN_LEVENSHTEIN_RATIO] = list(matches_ratios)
 
-        indexes_with_max_ratios = remaining.groupby(
-            [c.COLUMN_TEST_INDEX])[c.COLUMN_LEVENSHTEIN_RATIO].transform(max) == remaining[c.COLUMN_LEVENSHTEIN_RATIO]
-
-        matches = remaining.loc[indexes_with_max_ratios, :]
-        matches = matches.loc[matches[c.COLUMN_LEVENSHTEIN_RATIO] > threshold, :]
+        matches = remaining.loc[remaining[c.COLUMN_LEVENSHTEIN_RATIO] > threshold, :]
+        indexes_with_max_ratios = matches.groupby(
+            [c.COLUMN_TEST_INDEX])[c.COLUMN_LEVENSHTEIN_RATIO].transform(max) == matches[c.COLUMN_LEVENSHTEIN_RATIO]
+        matches = matches.loc[indexes_with_max_ratios, :]
         if not matches.empty:
             matches.loc[:, c.COLUMN_PREDICTION] = 1.0
 
@@ -183,15 +194,20 @@ class Prediction:
 
         features = np.zeros((number_of_rows, FEATURES_COUNT), dtype=float_type)
         dummy = np.zeros((FEATURES_COUNT,), dtype=encoding_type)
-        construct_features(title_number_of_characters, truth_number_of_characters,
-                           title_encoded, title_truth_encoded, truth_words_counts,
-                           self.feature_engineering.space_code, self.feature_engineering.number_of_truth_titles,
-                           dummy, features)
+
+        # http://numba.pydata.org/numba-doc/latest/reference/fpsemantics.html#warnings-and-errors
+        # Ignoring an invalid warning, as it can not be reproduced with forceobj=True
+        with np.errstate(all='ignore'):
+            construct_features(title_number_of_characters, truth_number_of_characters,
+                               title_encoded, title_truth_encoded, truth_words_counts,
+                               self.feature_engineering.space_code, self.feature_engineering.number_of_truth_titles,
+                               dummy, features)
 
         LOGGER.info(f'Features (shape = {features.shape}) constructed!')
 
         LOGGER.info('Calling model.predict()!')
-        remaining.loc[:, c.COLUMN_PREDICTION] = self.model.predict(xgb.DMatrix(features))
+        remaining.loc[:, c.COLUMN_PREDICTION] = self.model.predict(xgb.DMatrix(features),
+                                                                   ntree_limit=self.model.best_ntree_limit)
         LOGGER.info('Predictions generated!')
 
         LOGGER.info('Saving predictions!')
@@ -239,8 +255,8 @@ class Prediction:
 
         self._find_exact_matches()
 
-        chunk_size = 5000
-        data = self.data.copy(deep=True)
+        chunk_size = 10000
+        data = self.data.loc[:, [c.COLUMN_TEST_INDEX, c.COLUMN_TRANSFORMED_TITLE]].copy(deep=True)
         total = len(data)
         iteration = -1
         while True:

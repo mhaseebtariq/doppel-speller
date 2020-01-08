@@ -109,6 +109,23 @@ def get_test_data():
     return test_data
 
 
+def get_data_for_one_title(title):
+    test_index = 0
+    transformed_title = transform_title(title)
+    words = transformed_title.split()
+    number_of_words = len(words)
+    n_grams = get_n_grams(transformed_title, s.N_GRAMS)
+    return pd.DataFrame([[
+        test_index,
+        title,
+        transformed_title,
+        words,
+        number_of_words,
+        n_grams,
+    ]], columns=[c.COLUMN_TEST_INDEX, c.COLUMN_TITLE, c.COLUMN_TRANSFORMED_TITLE,
+                 c.COLUMN_WORDS, c.COLUMN_NUMBER_OF_WORDS, c.COLUMN_N_GRAMS])
+
+
 def get_words_counter(data):
     words = [x for y in data.loc[:, c.COLUMN_WORDS] for x in set(y)]
     return Counter(words)
@@ -128,23 +145,6 @@ def idf_word(word, words_counter, number_of_titles):
     Inverse document frequency
     """
     return math.log(number_of_titles / words_counter[word])
-
-
-def get_single_data(title):
-    test_index = 0
-    transformed_title = transform_title(title)
-    words = transformed_title.split()
-    number_of_words = len(words)
-    n_grams = get_n_grams(transformed_title, s.N_GRAMS)
-    return pd.DataFrame([[
-        test_index,
-        title,
-        transformed_title,
-        words,
-        number_of_words,
-        n_grams,
-    ]], columns=[c.COLUMN_TEST_INDEX, c.COLUMN_TITLE, c.COLUMN_TRANSFORMED_TITLE,
-                 c.COLUMN_WORDS, c.COLUMN_NUMBER_OF_WORDS, c.COLUMN_N_GRAMS])
 
 
 def levenshtein_ratio(text, text_to_match):
