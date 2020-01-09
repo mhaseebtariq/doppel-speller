@@ -54,7 +54,7 @@ def fast_jaccard(number_of_truth_titles, max_intersection_possible, non_zero_col
 def fast_arg_top_k(array, k):
     """
     Gets the indexes of the top k values in an array.
-    * NOTE: The returned indexes are no sorted based on the top values
+    * NOTE: The returned indexes are not sorted based on the top values
     * 50x faster than np.argsort
     """
     sorted_indexes = np.zeros((k,), dtype=s.ENCODING_FLOAT_TYPE)
