@@ -15,6 +15,14 @@ LOGGER = logging.getLogger(__name__)
 
 
 class Prediction:
+    """
+    Class responsible for generating predictions, given a "data_type" or a single "title"
+
+    :param data_type: See DATA_TYPE_MAPPING in doppelspeller.feature_engineering
+    :param title: Must be provided if data_type == c.DATA_TYPE_SINGLE
+
+    * Main public method: generate_test_predictions(...)
+    """
     def __init__(self, data_type, title=None):
         self.feature_engineering = FeatureEngineering(data_type, title=title)
         self.data = self.feature_engineering.data
@@ -35,6 +43,7 @@ class Prediction:
         ]
         self.predictions = pd.DataFrame(index=[], columns=self.predictions_columns)
 
+        # Encoding/caching mapping to speed up features generation
         self.mapping_truth_title_encoding = None
         self.mapping_truth_words_counts = None
         self.mapping_title_encoding = None
@@ -206,7 +215,7 @@ class Prediction:
         LOGGER.info(f'Features (shape = {features.shape}) constructed!')
 
         LOGGER.info('Calling model.predict()!')
-
+        # TODO: model.predict seems to be slow
         remaining.loc[:, c.COLUMN_PREDICTION] = self.model.predict(xgb.DMatrix(features),
                                                                    ntree_limit=self.model.best_ntree_limit)
         LOGGER.info('Predictions generated!')
@@ -248,6 +257,17 @@ class Prediction:
         LOGGER.info('Finalized output!')
 
     def generate_test_predictions(self, single_prediction=False):
+        """
+        * Gets exact title matches
+        * Gets all the nearest titles, for self.data, using self.match_maker
+        * For the nearest titles, first tries to get all the matches using self._get_levenshtein_ratio(...)
+        * Then the remaining titles are matched using the trained model
+        * The results are finalized and saved using self._finalize_output()
+        """
+        if single_prediction:
+            if len(self.data) != 1:
+                raise Exception(f'For "single_prediction" len(self.data) should be 1 (is {len(self.data)})!')
+
         top_n = s.TOP_N_RESULTS_TO_FIND_FOR_PREDICTING
 
         self.matched_so_far = []
@@ -280,4 +300,5 @@ class Prediction:
             return self.predictions.iloc[0].to_dict()
 
         self._finalize_output()
+
         return s.FINAL_OUTPUT_FILE

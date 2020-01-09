@@ -22,6 +22,10 @@ KEYBOARD_CARTESIAN = {
 
 
 def get_closest_matches_per_training_row(train_data, truth_data):
+    """
+    For evey data point in the training data, some more "nearest" (using MatchMaker) titles are fed to the model
+        - with  target = 0
+    """
     match_maker = MatchMaker(train_data, truth_data, s.TOP_N_RESULTS_TO_FIND_FOR_PREDICTING)
 
     LOGGER.info('Preparing training features data!')

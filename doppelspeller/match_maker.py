@@ -17,7 +17,30 @@ LOGGER = logging.getLogger(__name__)
 def fast_jaccard(number_of_truth_titles, max_intersection_possible, non_zero_columns_for_the_row,
                  matrix_truth_non_zero_columns_and_values, sums_matrix_truth):
     """
-    Calculate Jaccard distance using matrix operations.
+    Calculates (modified) Jaccard distances using matrix operations.
+
+    * The Jaccard distances are calculated for one title (data extracted from the arg -> non_zero_columns_for_the_row)
+        - against the rest of all the titles in the "truth" database
+    * In the returned array,
+        - the 0th index is the Jaccard distance for the title and the 0th title in the truth database
+        - the 1st index is the Jaccard distance for the title and the 1st title in the truth database
+        - the 2nd index is the Jaccard distance for the title and the 2nd title in the truth database
+        - and so on...
+    * The "modified" version is explained as follows:
+        - Instead of: (number of common n-grams in both titles) / (total number of unique n-grams in both titles)
+        - The distance is calculated as:
+            (Sum of IDFs of the common n-grams in both titles) / (Sum of IDFs of all the unique n-grams in both titles)
+        - This way, the more "unique" n-grams are given higher weightage in the calculated distance
+
+    :param number_of_truth_titles: Total number of titles in the "truth" data base
+    :param max_intersection_possible: The sum of IDFs (Inverse document frequency),
+        - for the n-grams of the tile, against which the Jaccard distances are being calculated
+    :param non_zero_columns_for_the_row: The row value for the data structure returned by
+        - <MatchMaker>._get_matrix_non_zero_columns()
+    :param matrix_truth_non_zero_columns_and_values: The data structure returned by
+        - <MatchMaker>._get_matrix_truth_non_zero_columns_and_values()
+    :param sums_matrix_truth: np.sum(<MatchMaker>.matrix_truth, axis=0)
+    :return: The (modified) Jaccard distances
     """
     scores = np.zeros((number_of_truth_titles,), dtype=s.ENCODING_FLOAT_TYPE)
     for non_zero_column in non_zero_columns_for_the_row:
@@ -28,10 +51,11 @@ def fast_jaccard(number_of_truth_titles, max_intersection_possible, non_zero_col
 
 
 @numba.njit(parallel=False)
-def fast_top_k(array, k):
+def fast_arg_top_k(array, k):
     """
+    Gets the indexes of the top k values in an array.
+    * NOTE: The returned indexes are no sorted based on the top values
     * 50x faster than np.argsort
-    * Not sorted
     """
     sorted_indexes = np.zeros((k,), dtype=s.ENCODING_FLOAT_TYPE)
     minimum_index = 0
@@ -46,6 +70,15 @@ def fast_top_k(array, k):
 
 
 class MatchMaker:
+    """
+    The class responsible for getting the closest (based on Jaccard distance) titles, given a collection of titles.
+
+    :param data: (dataframe) The collection of titles for which to find the closest titles
+    :param truth_data: (dataframe) The "truth" database
+    :param top_n: (int) Top n values to fetch
+
+    * Main public method: get_closest_matches(...)
+    """
     def __init__(self, data, truth_data, top_n):
         self.data = data
         self.truth_data = truth_data
@@ -70,6 +103,10 @@ class MatchMaker:
         LOGGER.info(f'[{self.__class__.__name__}] Loaded pre-requisite data!')
 
     def _get_matrix_non_zero_columns(self):
+        """
+        Returns a (numba.typed for compatibility with njit mode) list with the non-zero indexes of each row in,
+            - self.matrix
+        """
         matrix_non_zero_columns = numba.typed.List()
         for row in range(self.matrix.shape[0]):
             matrix_non_zero_columns.append(self.matrix[row].nonzero()[1])
@@ -77,6 +114,10 @@ class MatchMaker:
         return matrix_non_zero_columns
 
     def _get_matrix_truth_non_zero_columns_and_values(self):
+        """
+        Returns a (numba.typed for compatibility with njit mode) list with,
+            - the non-zero indexes of each row, along with the corresponding values, for self.matrix_truth
+        """
         matrix_truth_non_zero_columns_and_values = numba.typed.List()
         for row in range(self.matrix_truth.shape[0]):
             non_zero_columns = self.matrix_truth[row].nonzero()[1]
@@ -129,12 +170,18 @@ class MatchMaker:
         return self.idf_s_mapping.get(self.n_grams_decoding[index], self.max_idf_value)
 
     def _get_top_n_matches(self, modified_jaccard):
-        top_matches = fast_top_k(modified_jaccard, self.top_n)
+        """
+        For the calculated Jaccard distances, gets the nearest (self.top_n) title_id's from self.truth_data
+        """
+        top_matches = fast_arg_top_k(modified_jaccard, self.top_n)
         if top_matches.shape[0] != self.top_n:
             raise Exception('top_matches.shape[0] != self.top_n')
         return self.truth_data.loc[top_matches, c.COLUMN_TITLE_ID].tolist()
 
     def get_closest_matches(self, row_number):
+        """
+        Given the "row_number" of self.data, gets the closest (self.top_n) titles in self.truth_data
+        """
         non_zero_columns_for_the_row = self.matrix_non_zero_columns[row_number]
         max_intersection_possible = sum([self._get_idf_given_index(r) for r in non_zero_columns_for_the_row])
 

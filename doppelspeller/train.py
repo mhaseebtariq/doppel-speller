@@ -16,6 +16,10 @@ LOGGER = logging.getLogger(__name__)
 
 @numba.njit(fastmath=True)
 def fast_custom_error(prediction, actual):
+    """
+    Calculates the custom error, that is defined as,
+        - number_of_false_negatives + (number_of_false_positive * s.FALSE_POSITIVE_PENALTY_FACTOR)
+    """
     predictions_negative_indexes = (prediction <= s.PREDICTION_PROBABILITY_THRESHOLD).nonzero()[0]
     predictions_positive_indexes = (prediction > s.PREDICTION_PROBABILITY_THRESHOLD).nonzero()[0]
 
@@ -28,8 +32,10 @@ def fast_custom_error(prediction, actual):
 @numba.njit(fastmath=True)
 def fast_weighted_log_loss(prediction, actual):
     beta = s.FALSE_POSITIVE_PENALTY_FACTOR
+
     gradient = prediction * (beta + actual - beta * actual) - actual
     hessian = prediction * (1 - prediction) * (beta + actual - beta * actual)
+
     return gradient, hessian
 
 

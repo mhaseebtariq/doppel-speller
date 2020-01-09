@@ -18,6 +18,9 @@ KEEP_REGEX = re.compile(r'[a-zA-Z0-9\s]')
 
 
 def transform_title(title):
+    """
+    Transforms a title in to alpha-numeric-only (plus spaces) text
+    """
     # Remove accents and convert to lower case
     text = unicodedata.normalize('NFD', title)
     text = text.encode('ascii', 'ignore').decode('utf-8').lower().replace('-', ' ')
@@ -44,6 +47,13 @@ def transform_title(title):
 
 
 def read_and_transform_input_csv(input_file, input_file_delimiter, file_columns_mapping):
+    """
+    Reads an "input_file" (csv) and returns a dataframe after adding these additional columns:
+        * c.COLUMN_TRANSFORMED_TITLE
+        * c.COLUMN_WORDS
+        * c.COLUMN_NUMBER_OF_WORDS
+        * c.COLUMN_N_GRAMS
+    """
     data_read = pd.read_csv(input_file, delimiter=input_file_delimiter)
 
     data = pd.DataFrame(index=range(len(data_read)))

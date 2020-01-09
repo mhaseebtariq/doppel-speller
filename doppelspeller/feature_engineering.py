@@ -24,6 +24,10 @@ WORD_COUNTER_ZEROS = [0] * s.NUMBER_OF_WORDS_FEATURES
 
 @numba.njit(numba.uint8(numba.uint8[:], numba.uint8[:]), fastmath=True)
 def fast_levenshtein_ratio(seq1, seq2):
+    """
+    Returns the Levenshtein ratio for encoded string sequences. For example, the string "coolblue bv" is converted into:
+        - np.array([4, 16, 16, 13, 3, 13, 22, 6, 1, 3, 23])
+    """
     length_x = seq1.shape[0]
     length_y = seq2.shape[0]
     total_length = length_x + length_y
@@ -77,7 +81,22 @@ def construct_features(title_number_of_characters, truth_number_of_characters,
     """
     The main (vectorized) function to generate features for pairs of title and title_truth.
 
-    Can process approximately 50,000 rows per seconds!
+    Can process approximately 50,000 pairs per seconds!
+
+    :param title_number_of_characters: Number of characters in the title
+    :param truth_number_of_characters: Number of characters in the "truth" title (the title to match against)
+    :param title: Encoded title sequence. For example, the title "coolblue bv" is converted into:
+        - np.array([4, 16, 16, 13, 3, 13, 22, 6, 1, 3, 23, 0, 0, 0, ..., 0])
+        - The array is appended with 0's until the length becomes 256 - maximum value for numba.uint8
+    :param title_truth: Same encoding as title but for the "truth" title
+    :param truth_words_counts: Number of times each word in the "title_truth" appears in the entire "truth" database:
+        - For instance for "coolblue bv",
+        - np.array([1, 2145, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+        - The array is appended with 0's until the length becomes 15 (see s.NUMBER_OF_WORDS_FEATURES)
+    :param space_code: The encoding for the space character
+    :param number_of_truth_titles: Total number of titles in the "truth" database
+    :param dummy: A dummy variable to define the signature for the "response"
+    :param response: The main features matrix, that will be updated as a result of calling this function
     """
 
     title = title[:title_number_of_characters]
@@ -151,7 +170,21 @@ def construct_features(title_number_of_characters, truth_number_of_characters,
 
 
 class FeatureEngineering:
+    """
+    Class responsible for generating features for the model, given a "data_type" or a single "title"
+
+    :param data_type: See DATA_TYPE_MAPPING
+    :param title: Must be provided if data_type == c.DATA_TYPE_SINGLE
+
+    * Main public methods:
+        - encode_title(...)
+        - get_truth_words_counts(...)
+        - generate_train_and_evaluation_data_sets(...)
+    """
     def __init__(self, data_type, title=None):
+        if data_type == c.DATA_TYPE_SINGLE and title is None:
+            raise Exception('Title must be provided if data_type == c.DATA_TYPE_SINGLE')
+
         LOGGER.info(f'[{self.__class__.__name__}] Loading pre-requisite data!')
 
         data_args = tuple()
@@ -172,6 +205,9 @@ class FeatureEngineering:
             raise Exception('self.encoding[s.R_FILL_CHARACTER] != s.R_FILL_CHARACTER_ENCODING')
 
     def _generate_dummy_train_data(self):
+        """
+        Generates some  dummy training data by randomly misspelling some titles
+        """
         LOGGER.info('Generating dummy train data!')
 
         # Filtering short titles
@@ -189,6 +225,12 @@ class FeatureEngineering:
         return generated_training_data.reset_index()
 
     def _prepare_training_input_data(self):
+        """
+        For evey data point in the training data, some more "nearest" (using MatchMaker) titles are fed to the model
+            - with  target = 0
+        * The training data is also combined with some auto-generated data
+        * Returns training_rows_negative + training_rows + training_rows_generated
+        """
         generated_training_data = self._generate_dummy_train_data()
         training_data_input = get_closest_matches_per_training_row(self.data, self.truth_data)
 
@@ -254,18 +296,32 @@ class FeatureEngineering:
             set(list(evaluation_generated_index) + list(evaluation_negative_index) + list(evaluation_positive_index))))
 
     def encode_title(self, title):
+        """
+        Encodes the title. For example, the title "coolblue bv" is converted into:
+        * np.array([4, 16, 16, 13, 3, 13, 22, 6, 1, 3, 23, 0, 0, 0, ..., 0])
+        * The array is appended with 0's until the length becomes 256 - maximum value for numba.uint8
+        """
         return np.array(
             (list(map(self.encoding.get, title)) + WORD_ENCODING_ZEROS)[:s.MAX_CHARACTERS_ALLOWED_IN_THE_TITLE],
             dtype=s.NUMBER_OF_CHARACTERS_DATA_TYPE
         )
 
     def get_truth_words_counts(self, title):
+        """
+        Returns the number of times each word in the "title_truth" appears in the entire "truth" database:
+        * For instance for "coolblue bv",
+        * np.array([1, 2145, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+        * The array is appended with 0's until the length becomes 15 (see s.NUMBER_OF_WORDS_FEATURES)
+        """
         return np.array(
             (list(map(self.words_counter.get, title.split())) + WORD_COUNTER_ZEROS)[:s.NUMBER_OF_WORDS_FEATURES],
             dtype=s.WORDS_COUNT_DATA_TYPE
         )
 
     def generate_train_and_evaluation_data_sets(self):
+        """
+        Returns train and evaluation data sets, along with the respective target arrays.
+        """
         training_rows_final = self._prepare_training_input_data()
 
         number_of_rows = len(training_rows_final)
