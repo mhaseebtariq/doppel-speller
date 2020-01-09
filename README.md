@@ -61,10 +61,10 @@ Alias of `generate_predictions` in [cli.py](./doppelspeller/cli.py)
 
 ##### Accuracy for the "example test" data set:
 ```
-Correctly matched titles            5948
-Incorrectly matched titles          220 ⃰
-Correctly marked as not-found       3798
-Incorrectly marked as not-found     34
+Correctly matched titles            5953
+Incorrectly matched titles          201 ⃰
+Correctly marked as not-found       3807
+Incorrectly marked as not-found     39
 ```
 `*` The model is already biased against "false positives". To have even fewer false positives,
 tweak the `FALSE_POSITIVE_PENALTY_FACTOR` setting in [settings.py](./doppelspeller/settings.py)
