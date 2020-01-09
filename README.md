@@ -27,9 +27,10 @@ using a combination of Machine Learning and NLP techniques.<br/><br/>
 ## Explanation
 
 Main Classes:
-    * `MatchMaker` [match_maker.py](./doppelspeller/match_maker.py)
-    * `FeatureEngineering` [feature_engineering.py](./doppelspeller/feature_engineering.py)
-    * `Prediction` [predict.py](./doppelspeller/predict.py)
+
+* `MatchMaker` [match_maker.py](./doppelspeller/match_maker.py)
+* `FeatureEngineering` [feature_engineering.py](./doppelspeller/feature_engineering.py)
+* `Prediction` [predict.py](./doppelspeller/predict.py)
 
 Run the following cli's in order:
 
