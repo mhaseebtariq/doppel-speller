@@ -36,8 +36,8 @@ Run the following cli's in order:
 
 #### `make train-model`
 Alias of `train_model` in [cli.py](./doppelspeller/cli.py)
-* Prepares training data for a `OneVsRest[ ⃰]Classifier` - "rest" being the nearest "n" (based on the Jaccard distance) matches
-* Each "positive" match is trained along with the nearest n matches, that do not match with the title
+* Prepares training data for a `OneVsRest[ ⃰]Classifier` - "rest" being the closest "n" (based on the Jaccard distance) titles
+* Each "positive" match is trained along with the closest n titles, that do not match with that title
 * Generates `train` and `evaluation` data sets for the `train-model` cli
 * Main features generation method: `construct_features` (in [feature_engineering.py](./doppelspeller/feature_engineering.py))
 * XGBoost training output: `train-auc:0.999979	evaluation-auc:0.999964	train-custom-error:225	evaluation-custom-error:102`
