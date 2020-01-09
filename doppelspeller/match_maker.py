@@ -20,7 +20,7 @@ def fast_jaccard(number_of_truth_titles, max_intersection_possible, non_zero_col
     Calculates (modified) Jaccard distances using matrix operations.
 
     * The Jaccard distances are calculated for one title (data extracted from the arg -> non_zero_columns_for_the_row)
-        - against the rest of all the titles in the "truth" database
+        - against the rest of the titles in the "truth" database
     * In the returned array,
         - the 0th index is the Jaccard distance for the title and the 0th title in the truth database
         - the 1st index is the Jaccard distance for the title and the 1st title in the truth database
