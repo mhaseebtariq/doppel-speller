@@ -94,6 +94,8 @@ def train_model():
     scale_pos_weight = sum(train_target == 0) / sum(train_target == 1)
 
     watch_list = [(d_train, 'train'), (d_evaluation, 'evaluation')]
+
+    # TODO: Use the optimized parameters
     params = {
         'params': {
             'max_depth': 4,
