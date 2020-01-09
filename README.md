@@ -7,7 +7,7 @@ using a combination of Machine Learning and NLP techniques.<br/><br/>
 * Matching search terms in a database of millions of "true" titles (for example, company names) could be computationally expensive
     - For a data set, the current implementation matches 100,000 titles against 500,000 true titles in around 10 minutes - i.e. around 10,000 matches per minute
 * Human beings can be really creative, even come up with new ways, to misspell words in a title
-    - For the "example" data set - see the [error matrix](#accuracy-on-the-evaluation-data-set-for-the-example-data)
+    - For the "example" data set - see the [error matrix](#accuracy-for-the-example-test-data-set)
 
 ## Setup
 * **Pre-requisites**:
@@ -35,7 +35,7 @@ Alias of `train_model` in [cli.py](./doppelspeller/cli.py)
 * Generates `train` and `evaluation` data sets for the `train-model` cli
 * Main features generation method: `construct_features` (in [feature_engineering.py](./doppelspeller/feature_engineering.py))
 * XGBoost training output: `train-auc:0.999979	evaluation-auc:0.999964	train-custom-error:225	evaluation-custom-error:102`
-* Evaluation set error matrix:
+* Evaluation set error matrix for the "example" data:
 ```
 True Positives          7068
 True Negatives          18690
@@ -53,7 +53,7 @@ Alias of `generate_predictions` in [cli.py](./doppelspeller/cli.py)
 * Finally, the trained model is used to match the remaining titles
 * Test set predictions accuracy (run `make get-predictions-accuracy` to calculate the following)
 
-##### Accuracy on the evaluation data set for the "example" data:
+##### Accuracy for the "example test" data set:
 ```
 Correctly matched titles            5948
 Incorrectly matched titles          220 ⃰
