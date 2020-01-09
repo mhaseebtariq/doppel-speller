@@ -26,7 +26,7 @@ using a combination of Machine Learning and NLP techniques.<br/><br/>
 
 ## Explanation
 
-Main Classes:
+Main Classes (please follow the docstrings):
 
 * `MatchMaker` [match_maker.py](./doppelspeller/match_maker.py)
 * `FeatureEngineering` [feature_engineering.py](./doppelspeller/feature_engineering.py)
