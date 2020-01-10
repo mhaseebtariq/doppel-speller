@@ -39,8 +39,9 @@ def transform_title(title):
 
     elif number_of_characters > s.MAX_CHARACTERS_ALLOWED_IN_THE_TITLE:
         LOGGER.warning(
-            f'Titles greater than length 256 are not allowed. Trimming the title ({title[:10]}...)!\n'
-            'This is because of the data types set in FEATURES_TYPES (settings.py: NUMBER_OF_CHARACTERS_DATA_TYPE).'
+            f'Titles greater than length {s.MAX_CHARACTERS_ALLOWED_IN_THE_TITLE} are not allowed. '
+            f'Trimming the title ({title[:10]}...)!\nThis is because of the data '
+            f'types set in FEATURES_TYPES (settings.py: NUMBER_OF_CHARACTERS_DATA_TYPE).'
         )
 
     return text

@@ -6,6 +6,7 @@ import math
 import doppelspeller.settings as s
 import doppelspeller.constants as c
 from doppelspeller.match_maker import MatchMaker
+from doppelspeller.common import transform_title
 
 
 LOGGER = logging.getLogger(__name__)
@@ -168,4 +169,5 @@ def generate_misspelled_name(word):
     functions_selected = random.sample(functions, random.randint(1, 2))
     for func in functions_selected:
         new_word = func(new_word, len(new_word))
-    return new_word
+
+    return transform_title(new_word)

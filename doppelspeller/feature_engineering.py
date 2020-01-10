@@ -98,7 +98,6 @@ def construct_features(title_number_of_characters, truth_number_of_characters,
     :param dummy: A dummy variable to define the signature for the "response"
     :param response: The main features matrix, that will be updated as a result of calling this function
     """
-
     title = title[:title_number_of_characters]
     title_truth = title_truth[:truth_number_of_characters]
 
@@ -132,6 +131,7 @@ def construct_features(title_number_of_characters, truth_number_of_characters,
             truth_word = title_truth[:space_index]
         else:
             truth_word = title_truth[last_index:space_index]
+
         last_index = space_index + 1
 
         # Possible words loop
@@ -323,6 +323,9 @@ class FeatureEngineering:
         Returns train and evaluation data sets, along with the respective target arrays.
         """
         training_rows_final = self._prepare_training_input_data()
+
+        del self.data
+        del self.truth_data
 
         number_of_rows = len(training_rows_final)
 
