@@ -98,7 +98,7 @@ def train_model():
     # TODO: Use the optimized parameters
     params = {
         'params': {
-            'max_depth': 4,
+            'max_depth': 5,
             'eta': 0.1,
             'nthread': 4,  # TODO: Use dynamic settings
             'min_child_weight': 1,
