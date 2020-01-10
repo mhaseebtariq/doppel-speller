@@ -154,6 +154,11 @@ class Prediction:
             return levenshtein_token_sort_ratio(x, y)
         return ratio
 
+    @staticmethod
+    def _remove_duplicated_matches(matches):
+        duplicated_matches = matches.loc[matches.duplicated([c.COLUMN_TEST_INDEX]), c.COLUMN_TEST_INDEX]
+        return matches.loc[~(matches[c.COLUMN_TEST_INDEX].isin(duplicated_matches)), :]
+
     def _find_close_matches(self):
         threshold = 94
 
@@ -168,13 +173,15 @@ class Prediction:
         matches = remaining.loc[remaining[c.COLUMN_LEVENSHTEIN_RATIO] > threshold, :]
         indexes_with_max_ratios = matches.groupby(
             [c.COLUMN_TEST_INDEX])[c.COLUMN_LEVENSHTEIN_RATIO].transform(max) == matches[c.COLUMN_LEVENSHTEIN_RATIO]
-        matches = matches.loc[indexes_with_max_ratios, :]
+
+        matches = self._remove_duplicated_matches(matches.loc[indexes_with_max_ratios, :])
+
         if not matches.empty:
             matches.loc[:, c.COLUMN_PREDICTION] = 1.0
 
             self._save_prediction(matches)
 
-        return remaining.loc[~(remaining[c.COLUMN_TEST_INDEX].isin(matches[c.COLUMN_TEST_INDEX].tolist())), :]
+        return remaining.loc[~(remaining[c.COLUMN_TEST_INDEX].isin(self.matched_so_far)), :]
 
     def _find_matches_using_model(self, remaining, single_prediction=False):
         LOGGER.info('Finding matches using the model!')
@@ -215,7 +222,7 @@ class Prediction:
         LOGGER.info(f'Features (shape = {features.shape}) constructed!')
 
         LOGGER.info('Calling model.predict()!')
-        # TODO: model.predict seems to be slow
+        # TODO: model.predict(...) seems to be slow
         remaining.loc[:, c.COLUMN_PREDICTION] = self.model.predict(xgb.DMatrix(features),
                                                                    ntree_limit=self.model.best_ntree_limit)
         LOGGER.info('Predictions generated!')
@@ -224,13 +231,16 @@ class Prediction:
 
         if single_prediction:
             max_prediction = max(remaining.loc[:, c.COLUMN_PREDICTION])
-            matches = remaining.loc[remaining[c.COLUMN_PREDICTION] == max_prediction, :]
+            matches = remaining.loc[remaining[c.COLUMN_PREDICTION] == max_prediction, :].head(1)
             self._save_prediction(matches)
         else:
             indexes_with_max_predictions = remaining.groupby(
                 [c.COLUMN_TEST_INDEX])[c.COLUMN_PREDICTION].transform(max) == remaining[c.COLUMN_PREDICTION]
             matches = remaining.loc[indexes_with_max_predictions, :]
-            matches = matches.loc[matches[c.COLUMN_PREDICTION] > s.PREDICTION_PROBABILITY_THRESHOLD, :]
+            matches = self._remove_duplicated_matches(
+                matches.loc[matches[c.COLUMN_PREDICTION] > s.PREDICTION_PROBABILITY_THRESHOLD, :]
+            )
+
             if not matches.empty:
                 self._save_prediction(matches)
 
