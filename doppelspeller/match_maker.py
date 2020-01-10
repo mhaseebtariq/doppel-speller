@@ -97,7 +97,11 @@ class MatchMaker:
         self.n_grams_encoding = {v: k for k, v in self.n_grams_decoding.items()}
 
         self.matrix = self._construct_sparse_matrix(self.data)
+        del self.data
+
         self.matrix_truth = self._construct_sparse_matrix(self.truth_data, transpose=True)
+        self.truth_data = self.truth_data.loc[:, [c.COLUMN_TITLE_ID]]
+
         self.matrix_non_zero_columns = self._get_matrix_non_zero_columns()
         self.matrix_truth_non_zero_columns_and_values = self._get_matrix_truth_non_zero_columns_and_values()
         self.sums_matrix_truth = self._get_sums_matrix_truth()
@@ -156,13 +160,16 @@ class MatchMaker:
     def _construct_sparse_matrix(self, data, transpose=False):
         LOGGER.info(f'[{self.__class__.__name__}] Constructing sparse matrix!')
 
-        matrix = lil_matrix((len(data), len(self.n_grams_encoding)), dtype=s.ENCODING_FLOAT_TYPE)
-        for index, value in enumerate(data[c.COLUMN_N_GRAMS]):
-            indexes, uniqueness_values = self._get_encoding_values(value)
-            matrix[index, indexes] = uniqueness_values
-
         if transpose:
-            matrix = lil_matrix(matrix.T, dtype=s.ENCODING_FLOAT_TYPE)
+            matrix = lil_matrix((len(self.n_grams_encoding), len(data)), dtype=s.ENCODING_FLOAT_TYPE)
+            for index, value in enumerate(data[c.COLUMN_N_GRAMS]):
+                indexes, uniqueness_values = self._get_encoding_values(value)
+                matrix[indexes, index] = uniqueness_values
+        else:
+            matrix = lil_matrix((len(data), len(self.n_grams_encoding)), dtype=s.ENCODING_FLOAT_TYPE)
+            for index, value in enumerate(data[c.COLUMN_N_GRAMS]):
+                indexes, uniqueness_values = self._get_encoding_values(value)
+                matrix[index, indexes] = uniqueness_values
 
         LOGGER.info(f'[{self.__class__.__name__}] Constructed sparse matrix - {matrix.shape}!')
 
