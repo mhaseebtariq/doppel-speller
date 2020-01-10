@@ -65,6 +65,8 @@ def fast_arg_top_k(array, k):
             sorted_indexes[minimum_index] = value
             minimum_index = sorted_indexes.argmin()
             minimum_index_value = sorted_indexes[minimum_index]
+    # ENCODING_FLOAT_BUFFER = np.finfo(ENCODING_FLOAT_TYPE).resolution
+    # In some situations, because of different resolution you get k-1 results - this is to avoid that!
     minimum_index_value -= s.ENCODING_FLOAT_BUFFER
     return (array >= minimum_index_value).nonzero()[0][::-1][:k]
 
