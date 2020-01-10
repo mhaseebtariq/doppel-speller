@@ -282,7 +282,7 @@ class Prediction:
         * The results are finalized and saved using self._finalize_output()
         """
         if single_prediction:
-            if len(self.data) != 1:
+            if len(self.fe.data) != 1:
                 raise Exception(f'For "single_prediction" len(self.data) should be 1 (is {len(self.data)})!')
 
         top_n = s.TOP_N_RESULTS_TO_FIND_FOR_PREDICTING
