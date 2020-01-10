@@ -254,7 +254,7 @@ class Prediction:
         predictions.sort_values(c.COLUMN_TEST_INDEX, inplace=True)
         predictions.to_csv(s.FINAL_OUTPUT_FILE, index=False, sep=s.TEST_FILE_DELIMITER)
 
-        LOGGER.info(f'Output saved to {s.FINAL_OUTPUT_FILE}!')
+        LOGGER.info(f'\\nn{"*" * 100}\nOutput saved to {s.FINAL_OUTPUT_FILE}\n{"*" * 100}\n')
 
     def generate_test_predictions(self, single_prediction=False):
         """
