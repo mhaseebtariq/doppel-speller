@@ -99,12 +99,12 @@ class MatchMaker:
         self.matrix = self._construct_sparse_matrix(self.data)
         del self.data
 
-        self.matrix_truth = self._construct_sparse_matrix(self.truth_data, transpose=True)
+        self.sums_matrix_truth = np.zeros((self.number_of_truth_titles,), dtype=s.ENCODING_FLOAT_TYPE)
+        self.matrix_truth = self._construct_sparse_matrix(self.truth_data, is_truth_data=True)
         self.truth_data = self.truth_data.loc[:, [c.COLUMN_TITLE_ID]]
 
         self.matrix_non_zero_columns = self._get_matrix_non_zero_columns()
         self.matrix_truth_non_zero_columns_and_values = self._get_matrix_truth_non_zero_columns_and_values()
-        self.sums_matrix_truth = self._get_sums_matrix_truth()
 
         LOGGER.info(f'[{self.__class__.__name__}] Loaded pre-requisite data!')
 
@@ -132,11 +132,6 @@ class MatchMaker:
 
         return matrix_truth_non_zero_columns_and_values
 
-    def _get_sums_matrix_truth(self):
-        return np.array(
-            [x for x in np.sum(self.matrix_truth, axis=0).data.tolist()][0], dtype=s.ENCODING_FLOAT_TYPE
-        )
-
     def _idf_n_gram(self, n_gram):
         """
         Inverse document frequency
@@ -157,14 +152,15 @@ class MatchMaker:
                                      dtype=s.ENCODING_FLOAT_TYPE)
         return indexes, uniqueness_values
 
-    def _construct_sparse_matrix(self, data, transpose=False):
+    def _construct_sparse_matrix(self, data, is_truth_data=False):
         LOGGER.info(f'[{self.__class__.__name__}] Constructing sparse matrix!')
 
-        if transpose:
+        if is_truth_data:
             matrix = lil_matrix((len(self.n_grams_encoding), len(data)), dtype=s.ENCODING_FLOAT_TYPE)
             for index, value in enumerate(data[c.COLUMN_N_GRAMS]):
                 indexes, uniqueness_values = self._get_encoding_values(value)
                 matrix[indexes, index] = uniqueness_values
+                self.sums_matrix_truth[index] = sum(uniqueness_values)
         else:
             matrix = lil_matrix((len(data), len(self.n_grams_encoding)), dtype=s.ENCODING_FLOAT_TYPE)
             for index, value in enumerate(data[c.COLUMN_N_GRAMS]):

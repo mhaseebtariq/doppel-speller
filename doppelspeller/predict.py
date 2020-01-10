@@ -24,10 +24,8 @@ class Prediction:
     * Main public method: generate_test_predictions(...)
     """
     def __init__(self, data_type, title=None):
-        self.feature_engineering = FeatureEngineering(data_type, title=title)
-        self.data = self.feature_engineering.data
-        self.test_indexes = list(self.data[c.COLUMN_TEST_INDEX])
-        self.truth_data = self.feature_engineering.truth_data
+        self.fe = FeatureEngineering(data_type, title=title)
+        self.test_indexes = list(self.fe.data[c.COLUMN_TEST_INDEX])
         self.model = self._load_model()
 
         self.match_maker = None
@@ -49,28 +47,25 @@ class Prediction:
         self.mapping_title_encoding = None
         self._populate_encoding_mappings()
 
+        self.data = None
+
     def _populate_encoding_mappings(self):
         title_column = c.COLUMN_TRANSFORMED_TITLE
 
-        self.mapping_truth_title_encoding = self.truth_data.set_index(c.COLUMN_TITLE_ID).to_dict()[title_column]
+        self.mapping_truth_title_encoding = self.fe.truth_data.set_index(c.COLUMN_TITLE_ID).to_dict()[title_column]
         self.mapping_truth_title_encoding = {
-            k: self.feature_engineering.encode_title(v) for k, v in self.mapping_truth_title_encoding.items()
-        }
-        self.mapping_truth_words_counts = self.truth_data.set_index(c.COLUMN_TITLE_ID).to_dict()[title_column]
-        self.mapping_truth_words_counts = {
-            k: self.feature_engineering.get_truth_words_counts(v) for k, v in self.mapping_truth_words_counts.items()
-        }
-        self.mapping_title_encoding = self.data.set_index(c.COLUMN_TEST_INDEX).to_dict()[title_column]
-        self.mapping_title_encoding = {
-            k: self.feature_engineering.encode_title(v) for k, v in self.mapping_title_encoding.items()
+            k: self.fe.encode_title(v) for k, v in self.mapping_truth_title_encoding.items()
         }
 
-    @staticmethod
-    def _set_index_truth_data(truth_data):
-        truth_data.set_index(c.COLUMN_TITLE_ID, inplace=True)
-        truth_data.sort_index(inplace=True)
-        truth_data.loc[:, c.COLUMN_TITLE_ID] = truth_data.index
-        return truth_data
+        self.mapping_truth_words_counts = self.fe.truth_data.set_index(c.COLUMN_TITLE_ID).to_dict()[title_column]
+        self.mapping_truth_words_counts = {
+            k: self.fe.get_truth_words_counts(v) for k, v in self.mapping_truth_words_counts.items()
+        }
+
+        self.mapping_title_encoding = self.fe.data.set_index(c.COLUMN_TEST_INDEX).to_dict()[title_column]
+        self.mapping_title_encoding = {
+            k: self.fe.encode_title(v) for k, v in self.mapping_title_encoding.items()
+        }
 
     @staticmethod
     def _get_truth_data_mappings(truth_data):
@@ -89,6 +84,12 @@ class Prediction:
     def _save_prediction(self, matches):
         self.predictions = pd.concat([self.predictions, matches.loc[:, self.predictions_columns]],
                                      axis=0, ignore_index=True)
+
+        # Change data types
+        self.predictions.loc[:, c.COLUMN_TEST_INDEX] = self.predictions[c.COLUMN_TEST_INDEX].astype(np.uint32)
+        self.predictions.loc[:, c.COLUMN_MATCH_TITLE_ID] = self.predictions[c.COLUMN_MATCH_TITLE_ID].astype(np.uint32)
+        self.predictions.loc[:, c.COLUMN_PREDICTION] = self.predictions[c.COLUMN_TEST_INDEX].astype(np.float16)
+
         self.matched_so_far = list(self.predictions[c.COLUMN_TEST_INDEX])
 
         LOGGER.info(f'Matched {len(self.matched_so_far)} titles so far!')
@@ -97,10 +98,12 @@ class Prediction:
         LOGGER.info('Finding exact matches!')
 
         exact_value_flag = -2
-        self.data.loc[:, c.COLUMN_EXACT] = self.data.loc[:, c.COLUMN_TRANSFORMED_TITLE].apply(
+        self.fe.data.loc[:, c.COLUMN_EXACT] = self.fe.data.loc[:, c.COLUMN_TRANSFORMED_TITLE].apply(
             lambda x: self.truth_data_mapping_reversed.get(x, exact_value_flag))
 
-        test_data_filtered = self.data.loc[self.data[c.COLUMN_EXACT] != exact_value_flag, :].copy(deep=True)
+        del self.truth_data_mapping_reversed
+
+        test_data_filtered = self.fe.data.loc[self.fe.data[c.COLUMN_EXACT] != exact_value_flag, :].copy(deep=True)
         if not test_data_filtered.empty:
             test_data_filtered.loc[:, c.COLUMN_PREDICTION] = 1.0
             test_data_filtered.loc[:, c.COLUMN_MATCH_TRANSFORMED_TITLE] = test_data_filtered.loc[
@@ -108,8 +111,6 @@ class Prediction:
             test_data_filtered.rename(columns={c.COLUMN_EXACT: c.COLUMN_MATCH_TITLE_ID}, inplace=True)
 
             self._save_prediction(test_data_filtered)
-
-        del test_data_filtered
 
     def _get_nearest_match_title_id(self, index, test_index, nearest_matches):
         index = index % self.match_maker.top_n
@@ -216,15 +217,23 @@ class Prediction:
         with np.errstate(all='ignore'):
             construct_features(title_number_of_characters, truth_number_of_characters,
                                title_encoded, title_truth_encoded, truth_words_counts,
-                               self.feature_engineering.space_code, self.feature_engineering.number_of_truth_titles,
+                               self.fe.space_code, self.fe.number_of_truth_titles,
                                dummy, features)
 
         LOGGER.info(f'Features (shape = {features.shape}) constructed!')
 
+        del title_number_of_characters
+        del truth_number_of_characters
+        del title_encoded
+        del title_truth_encoded
+        del truth_words_counts
+
+        features_d = xgb.DMatrix(features)
+        del features
+
         LOGGER.info('Calling model.predict()!')
         # TODO: model.predict(...) seems to be slow
-        remaining.loc[:, c.COLUMN_PREDICTION] = self.model.predict(xgb.DMatrix(features),
-                                                                   ntree_limit=self.model.best_ntree_limit)
+        remaining.loc[:, c.COLUMN_PREDICTION] = self.model.predict(features_d, ntree_limit=self.model.best_ntree_limit)
         LOGGER.info('Predictions generated!')
 
         LOGGER.info('Saving predictions!')
@@ -243,8 +252,6 @@ class Prediction:
 
             if not matches.empty:
                 self._save_prediction(matches)
-
-        del remaining
 
         LOGGER.info('Predictions saved!')
 
@@ -281,13 +288,14 @@ class Prediction:
         top_n = s.TOP_N_RESULTS_TO_FIND_FOR_PREDICTING
 
         self.matched_so_far = []
-        self.match_maker = MatchMaker(self.data, self.truth_data, top_n)
-        self.truth_data_mapping, self.truth_data_mapping_reversed = self._get_truth_data_mappings(self.truth_data)
+        self.match_maker = MatchMaker(self.fe.data, self.fe.truth_data, top_n)
+        self.truth_data_mapping, self.truth_data_mapping_reversed = self._get_truth_data_mappings(self.fe.truth_data)
 
         self._find_exact_matches()
 
         chunk_size = 10000
-        data = self.data.loc[:, [c.COLUMN_TEST_INDEX, c.COLUMN_TRANSFORMED_TITLE]].copy(deep=True)
+        data = self.fe.data.loc[:, [c.COLUMN_TEST_INDEX, c.COLUMN_TRANSFORMED_TITLE]].copy(deep=True)
+        data.loc[:, c.COLUMN_TEST_INDEX] = data[c.COLUMN_TEST_INDEX].astype(np.uint32)
         total = len(data)
         iteration = -1
         while True:
@@ -295,7 +303,8 @@ class Prediction:
             start_index = iteration * chunk_size
             stop_index = start_index + chunk_size
 
-            self.data = data.loc[data.iloc[start_index:stop_index].index, :]
+            self.data = data.loc[data.iloc[start_index:stop_index].index,
+                                 [c.COLUMN_TEST_INDEX, c.COLUMN_TRANSFORMED_TITLE]]
             if self.data.empty:
                 break
 
