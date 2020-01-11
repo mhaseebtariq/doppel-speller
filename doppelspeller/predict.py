@@ -88,7 +88,7 @@ class Prediction:
         # Change data types
         self.predictions.loc[:, c.COLUMN_TEST_INDEX] = self.predictions[c.COLUMN_TEST_INDEX].astype(np.uint32)
         self.predictions.loc[:, c.COLUMN_MATCH_TITLE_ID] = self.predictions[c.COLUMN_MATCH_TITLE_ID].astype(np.uint32)
-        self.predictions.loc[:, c.COLUMN_PREDICTION] = self.predictions[c.COLUMN_TEST_INDEX].astype(np.float16)
+        self.predictions.loc[:, c.COLUMN_PREDICTION] = self.predictions[c.COLUMN_PREDICTION].astype(np.float16)
 
         self.matched_so_far = list(self.predictions[c.COLUMN_TEST_INDEX])
 
