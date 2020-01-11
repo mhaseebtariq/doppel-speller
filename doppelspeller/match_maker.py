@@ -96,11 +96,11 @@ class MatchMaker:
         self.n_grams_decoding = self._get_encoding_mappings()
         self.n_grams_encoding = {v: k for k, v in self.n_grams_decoding.items()}
 
-        self.matrix = self._construct_sparse_matrix(self.data)
+        self.matrix = self._construct_data_sparse_matrix()
         del self.data
 
         self.sums_matrix_truth = np.zeros((self.number_of_truth_titles,), dtype=s.ENCODING_FLOAT_TYPE)
-        self.matrix_truth = self._construct_sparse_matrix(self.truth_data, is_truth_data=True)
+        self.matrix_truth = self._construct_truth_data_sparse_matrix()
         self.truth_data = self.truth_data.loc[:, [c.COLUMN_TITLE_ID]]
 
         self.matrix_non_zero_columns = self._get_matrix_non_zero_columns()
@@ -152,20 +152,26 @@ class MatchMaker:
                                      dtype=s.ENCODING_FLOAT_TYPE)
         return indexes, uniqueness_values
 
-    def _construct_sparse_matrix(self, data, is_truth_data=False):
-        LOGGER.info(f'[{self.__class__.__name__}] Constructing sparse matrix!')
+    def _construct_data_sparse_matrix(self):
+        LOGGER.info(f'[{self.__class__.__name__}] Constructing data sparse matrix!')
 
-        if is_truth_data:
-            matrix = lil_matrix((len(self.n_grams_encoding), len(data)), dtype=s.ENCODING_FLOAT_TYPE)
-            for index, value in enumerate(data[c.COLUMN_N_GRAMS]):
-                indexes, uniqueness_values = self._get_encoding_values(value)
-                matrix[indexes, index] = uniqueness_values
-                self.sums_matrix_truth[index] = sum(uniqueness_values)
-        else:
-            matrix = lil_matrix((len(data), len(self.n_grams_encoding)), dtype=s.ENCODING_FLOAT_TYPE)
-            for index, value in enumerate(data[c.COLUMN_N_GRAMS]):
-                indexes, uniqueness_values = self._get_encoding_values(value)
-                matrix[index, indexes] = uniqueness_values
+        matrix = lil_matrix((len(self.data), len(self.n_grams_encoding)), dtype=s.ENCODING_FLOAT_TYPE)
+        for index, value in enumerate(self.data[c.COLUMN_N_GRAMS]):
+            indexes, uniqueness_values = self._get_encoding_values(value)
+            matrix[index, indexes] = uniqueness_values
+
+        LOGGER.info(f'[{self.__class__.__name__}] Constructed sparse matrix - {matrix.shape}!')
+
+        return matrix
+
+    def _construct_truth_data_sparse_matrix(self):
+        LOGGER.info(f'[{self.__class__.__name__}] Constructing truth data sparse matrix!')
+
+        matrix = lil_matrix((len(self.n_grams_encoding), len(self.truth_data)), dtype=s.ENCODING_FLOAT_TYPE)
+        for index, value in enumerate(self.truth_data[c.COLUMN_N_GRAMS]):
+            indexes, uniqueness_values = self._get_encoding_values(value)
+            matrix[indexes, index] = uniqueness_values
+            self.sums_matrix_truth[index] = sum(uniqueness_values)
 
         LOGGER.info(f'[{self.__class__.__name__}] Constructed sparse matrix - {matrix.shape}!')
 

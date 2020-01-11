@@ -145,13 +145,13 @@ class Prediction:
         return ((total_length - delta) / total_length) * 100
 
     @classmethod
-    def _get_levenshtein_ratio(cls, x, y, threshold):
+    def _get_levenshtein_ratio(cls, x, y):
         # We only consider the levenshtein_ratio for "matching" if it's > threshold
-        if cls._get_levenshtein_deletion_ratio(x, y) < threshold:
+        if cls._get_levenshtein_deletion_ratio(x, y) < s.LEVENSHTEIN_RATIO_THRESHOLD:
             return 0
 
         ratio = levenshtein_ratio(x, y)
-        if ratio <= threshold:
+        if ratio <= s.LEVENSHTEIN_RATIO_THRESHOLD:
             return levenshtein_token_sort_ratio(x, y)
         return ratio
 
@@ -161,17 +161,15 @@ class Prediction:
         return matches.loc[~(matches[c.COLUMN_TEST_INDEX].isin(duplicated_matches)), :]
 
     def _find_close_matches(self):
-        threshold = 94
-
         LOGGER.info(f'Finding very close matches!')
 
         remaining = self._combine_titles_with_matches()
 
-        matches_ratios = map(lambda x, y: self._get_levenshtein_ratio(x, y, threshold),
+        matches_ratios = map(lambda x, y: self._get_levenshtein_ratio(x, y),
                              remaining[c.COLUMN_TRANSFORMED_TITLE], remaining[c.COLUMN_MATCH_TRANSFORMED_TITLE])
         remaining.loc[:, c.COLUMN_LEVENSHTEIN_RATIO] = list(matches_ratios)
 
-        matches = remaining.loc[remaining[c.COLUMN_LEVENSHTEIN_RATIO] > threshold, :]
+        matches = remaining.loc[remaining[c.COLUMN_LEVENSHTEIN_RATIO] > s.LEVENSHTEIN_RATIO_THRESHOLD, :]
         indexes_with_max_ratios = matches.groupby(
             [c.COLUMN_TEST_INDEX])[c.COLUMN_LEVENSHTEIN_RATIO].transform(max) == matches[c.COLUMN_LEVENSHTEIN_RATIO]
 

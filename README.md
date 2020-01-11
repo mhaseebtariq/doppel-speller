@@ -43,10 +43,10 @@ Alias of `train_model` in [cli.py](./doppelspeller/cli.py)
 * XGBoost training output: `train-auc:0.999979	evaluation-auc:0.999964	train-custom-error:225	evaluation-custom-error:102`
 * Evaluation set error matrix for the "example" data:
 ```
-True Positives          7068
-True Negatives          18690
-False Positives         5
-False Negatives         25
+True Positives          7084
+True Negatives          18673
+False Positives         2
+False Negatives         26
 ```
 * See the definition of `custom_error` in [train.py](./doppelspeller/train.py)
     - Also, the custom objective function `weighted_log_loss`
@@ -61,13 +61,13 @@ Alias of `generate_predictions` in [cli.py](./doppelspeller/cli.py)
 
 ##### Accuracy for the "example test" data set:
 ```
-Correctly matched titles            5953
-Incorrectly matched titles          201 ⃰
-Correctly marked as not-found       3807
-Incorrectly marked as not-found     39
+Correctly matched titles            5929
+Incorrectly matched titles          114 ⃰
+Correctly marked as not-found       3894
+Incorrectly marked as not-found     63
 ```
 `*` The model is already biased against "false positives". To have even fewer false positives,
-tweak the `FALSE_POSITIVE_PENALTY_FACTOR` setting in [settings.py](./doppelspeller/settings.py)
+tweak the `FALSE_POSITIVE_PENALTY_FACTOR` or `PREDICTION_PROBABILITY_THRESHOLD` settings in [settings.py](./doppelspeller/settings.py)
 
 #### `make closest-search-single-title title='PRO teome plc SCIs'`
 Alias of `closest_search_single_title` in [cli.py](./doppelspeller/cli.py)

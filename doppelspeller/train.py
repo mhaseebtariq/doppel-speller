@@ -100,7 +100,6 @@ def train_model():
         'params': {
             'max_depth': 5,
             'eta': 0.1,
-            'nthread': 4,  # TODO: Use dynamic settings
             'min_child_weight': 1,
             'eval_metric': 'auc',
             'objective': 'reg:logistic',

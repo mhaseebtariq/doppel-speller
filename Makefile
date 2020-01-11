@@ -26,9 +26,11 @@ stage-example-data-set:
 	docker-compose up -d && docker exec -t doppelspeller doppel-speller -vv stage-example-data-set-on-docker-container
 
 train-model:
+	make update-docker
 	docker-compose up -d && docker exec -t doppelspeller doppel-speller -vv train-model
 
 generate-predictions:
+	make update-docker
 	docker-compose up -d && docker exec -t doppelspeller doppel-speller -vv generate-predictions
 
 get-predictions-accuracy:

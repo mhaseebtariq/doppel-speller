@@ -35,9 +35,9 @@ def get_closest_matches_per_training_row(train_data, truth_data):
     number_training_rows = len(train_data)
     batch_time = time.time()
     for row_number, title_id in enumerate(train_data[c.COLUMN_TITLE_ID]):
-        if not(row_number % 5000):
+        if not((row_number + 1) % 5000):
             elapsed = f'{round(time.time() - batch_time)} secs'
-            LOGGER.info(f'Processed {row_number} of {number_training_rows} [{elapsed}]!')
+            LOGGER.info(f'Processed {row_number + 1} of {number_training_rows} [{elapsed}]!')
             batch_time = time.time()
 
         matches = random.sample(match_maker.get_closest_matches(row_number), s.TOP_N_RESULTS_TO_FIND_FOR_TRAINING)
