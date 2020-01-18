@@ -23,18 +23,18 @@ WORD_COUNTER_ZEROS = [0] * s.NUMBER_OF_WORDS_FEATURES
 
 
 @numba.njit(numba.uint8(numba.uint8[:], numba.uint8[:]), fastmath=True)
-def fast_levenshtein_ratio(seq1, seq2):
+def fast_levenshtein_ratio(sequence, sequence_to_compare_against):
     """
     Returns the Levenshtein ratio for encoded string sequences. For example, the string "coolblue bv" is converted into:
         - np.array([4, 16, 16, 13, 3, 13, 22, 6, 1, 3, 23])
     """
-    length_x = seq1.shape[0]
-    length_y = seq2.shape[0]
+    length_x = sequence.shape[0]
+    length_y = sequence_to_compare_against.shape[0]
     total_length = length_x + length_y
 
     if length_x > length_y:
         length_x, length_y = length_y, length_x
-        seq1, seq2 = seq2, seq1
+        sequence, sequence_to_compare_against = sequence_to_compare_against, sequence
 
     size_x = length_x + 1
     size_y = length_y + 1
@@ -47,7 +47,7 @@ def fast_levenshtein_ratio(seq1, seq2):
 
     for x in range(1, size_x):
         for y in range(1, size_y):
-            if seq1[x - 1] == seq2[y - 1]:
+            if sequence[x - 1] == sequence_to_compare_against[y - 1]:
                 matrix[x, y] = min(
                     matrix[x - 1, y] + 1,
                     matrix[x - 1, y - 1],
